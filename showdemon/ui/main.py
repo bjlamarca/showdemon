@@ -109,7 +109,7 @@ class MainWindow(QMainWindow):
     def show_devlib_window(self, checked):
         print('Checked:', checked)
         self.dev_lib_win = DevLibWindow()
-        self.dev_lib_win.resize(QSize(400, 200))
+        self.dev_lib_win.resize(QSize(600, 900))
         self.dev_lib_win.show()
    
     def on_button_start_dmx_clicked(self):

@@ -1,37 +1,6 @@
 from devices.colors import Colors
 
-#(Name, Display, Feature Type )
-class FeatureList():
-    FEATURE_LIST = (
-        ('RGB','RGB'),
-        ('DIMM', 'Dimmer'),
-        ('COLORWHL', 'Color Wheel'),
-        ('GOBOWHL', 'Gobo Wheel'),
-        ('SELECT', 'Selector')
-    )
 
-    def __iter__(self):
-        return iter(self.FEATURE_LIST)
-    
-class ChannelType():
-    CHANNEL_TYPE_LIST = (
-        ('DIMM', 'Dimmer'),
-        ('RGB-R','RGB Red'),
-        ('RGB-G','RGB Green'),
-        ('RGB-B','RGB Blue'),
-        ('SELECT','Selector'),
-        ('PAN', 'Pan'),
-        ('TILT', 'Tilt'),
-        ('PAN-F','Pan-Fine'),
-        ('TILT-F','Pan-Tilt'),
-        ('MOTION', 'Motion'),
-        ('MOTION-F', 'Motion-Fine'),
-        ('SPEED','Speed'),
-        ('SPEED-F','Speed-Fine'),
-    )
-
-    def __iter__(self):
-        return iter(self.CHANNEL_TYPE_LIST)
 
 
 

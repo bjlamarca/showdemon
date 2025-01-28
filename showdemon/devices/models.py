@@ -1,15 +1,16 @@
 from django.db import models
 from django.urls import reverse
 from django.core.exceptions import ValidationError
-from devices.constants import SYSTEM_CHOICES, INTERFACE_CHOICES
-from devices.features import ChannelType, FeatureList
+from devices.constants import SystemType, Interfaces, ChannelType, FeatureList
+
 
 
 class Manufacture(models.Model):
     name = models.CharField(max_length=150)
     comments = models.TextField(
         verbose_name='comments',
-        blank=True
+        blank=True, 
+        null=True
     )
     def __str__(self):
         return str(self.name)
@@ -23,7 +24,7 @@ class DeviceLibrary(models.Model):
     name = models.CharField(max_length=150)
     system = models.CharField(
         max_length=10,
-        choices=SYSTEM_CHOICES
+        choices=SystemType
     )
     
     manufacture = models.ForeignKey(
@@ -56,7 +57,7 @@ class Device(models.Model):
     )
     interface = models.CharField(
         max_length=10, 
-        choices=INTERFACE_CHOICES
+        choices=Interfaces
     )
     description = models.CharField(
         max_length=200,
@@ -80,7 +81,7 @@ class DeviceFeature(models.Model):
         )
     system = models.CharField(
         max_length=10,
-        choices=SYSTEM_CHOICES
+        choices=SystemType
     )
     device_library = models.ForeignKey(
         to=DeviceLibrary,
