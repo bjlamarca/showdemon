@@ -20,13 +20,12 @@ class Manufacture(models.Model):
 
 
 #Templates that become parents for Devices. Should not be modified once a child device is created.  
-class DeviceLibrary(models.Model):
+class LibraryDevice(models.Model):
     name = models.CharField(max_length=150)
     system = models.CharField(
         max_length=10,
         choices=SystemType
     )
-    
     manufacture = models.ForeignKey(
         to=Manufacture,
         on_delete=models.PROTECT
@@ -48,28 +47,7 @@ class DeviceLibrary(models.Model):
     def get_absolute_url(self):
         return reverse("devices:device_library", kwargs={"pk": self.pk})
 
-#The actual physical or virtual device, a child of DeviceLibrary item.    
-class Device(models.Model):
-    name = models.CharField(max_length=150)
-    device_library = models.ForeignKey(
-        to=DeviceLibrary,
-        on_delete=models.PROTECT
-    )
-    interface = models.CharField(
-        max_length=10, 
-        choices=Interfaces
-    )
-    description = models.CharField(
-        max_length=200,
-        blank=True,
-        null=True
-        )
-    
-    def __str__(self):
-        return str(self.name)
 
-    def get_absolute_url(self):
-        return reverse("devices:device", kwargs={"pk": self.pk})
 
 
 #Children of DeviceLibrary records, Devices refer to through their parent.
@@ -84,9 +62,10 @@ class DeviceFeature(models.Model):
         choices=SystemType
     )
     device_library = models.ForeignKey(
-        to=DeviceLibrary,
+        to=LibraryDevice,
         on_delete=models.PROTECT
     )
+    sort_order = models.IntegerField()
 
     class Meta:
         verbose_name = 'Device Feature'
@@ -97,25 +76,22 @@ class DeviceFeature(models.Model):
     def get_absolute_url(self):
         return reverse("devices:device_feature", kwargs={"pk": self.pk})
 
- # Child of a Device and DeviceFeature, created by a feature class.  Parameter is JSON (Dict) for extra info, example 
+ # Child of a LibraryDevice and DeviceFeature, created by a feature class.  Parameter is JSON (Dict) for extra info, example 
  # would be min, max, scaled min, scaled max values for the int_value field
- # It is meant to be flexable, for features classes to use as needed. For DMX, this would a channel.    
-class Channel(models.Model):
+ # It is meant to be flexable, for features classes to use as needed. For DMX, this would a channel.   
+class LibraryChannel(models.Model):
     name = models.CharField(max_length=150)
     channel_type = models.CharField(
         max_length=100,
         choices=ChannelType
     ) 
-    device = models.ForeignKey(
-        to=Device,
+    library_device = models.ForeignKey(
+        to=LibraryDevice,
         on_delete=models.PROTECT
     )
     device_feature = models.ForeignKey(
         to=DeviceFeature,
         on_delete=models.PROTECT
-    )
-    int_value = models.IntegerField(
-        blank=True
     )
     int_min = models.IntegerField(
         blank=True
@@ -138,13 +114,13 @@ class Channel(models.Model):
     def get_absolute_url(self):
         return reverse("devices:channel", kwargs={"pk": self.pk})
 
-# Child of Channel.  Can be used for selections, or other ranges in the channel.
+# Child of LibraryChannel.  Can be used for selections, or other ranges in the channel.
 # the max and min fields must be within the range of thoose fields in parent Channel 
 class ChannelParameter(models.Model):
     name = models.CharField(max_length=150)
     allow_fading = models.BooleanField(default=False)
     channel = models.ForeignKey(
-        to=Channel,
+        to=LibraryChannel,
         on_delete=models.PROTECT
     )
     int_value = models.IntegerField(
@@ -162,6 +138,63 @@ class ChannelParameter(models.Model):
 
     def get_absolute_url(self):
         return reverse("devices:channel_parameter", kwargs={"pk": self.pk})
+
+#The actual physical or virtual device, a child of DeviceLibrary item.    
+class Device(models.Model):
+    name = models.CharField(max_length=150)
+    device_library = models.ForeignKey(
+        to=LibraryDevice,
+        on_delete=models.PROTECT
+    )
+    interface = models.CharField(
+        max_length=10, 
+        choices=Interfaces,
+        blank=True,
+        null=True
+
+    )
+    description = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True
+        )
+    
+    def __str__(self):
+        return str(self.name)
+
+    def get_absolute_url(self):
+        return reverse("devices:device", kwargs={"pk": self.pk})
+
+#Linked to a library channel, only stores values  
+class Channel(models.Model):
+    device = models.ForeignKey(
+        to=Device,
+        on_delete=models.PROTECT
+    )
+    library_channel = models.ForeignKey(
+        to=LibraryChannel,
+        on_delete=models.PROTECT
+    )
+    channel_number = models.IntegerField()
+    int_value = models.IntegerField(
+        blank=True
+    )
+    str_value = models.CharField(
+        max_length=(1000),
+        blank = True
+    )
+    parameter = models.CharField(
+        max_length=(1000),
+        blank = True
+    )
+
+    def __str__(self):
+        return str(self.device.name) + ' ' + str(self.channel_number)
+
+    def get_absolute_url(self):
+        return reverse("devices:channel", kwargs={"pk": self.pk})
+
+
     
 
 

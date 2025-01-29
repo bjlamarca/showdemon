@@ -1,8 +1,12 @@
 from PySide6.QtWidgets import (QWidget, QPushButton, QMessageBox, QVBoxLayout, QLabel, QHBoxLayout, QComboBox,
-    QTableWidget, QTableWidgetItem, QLineEdit, QTabWidget, QDialog, QDialogButtonBox, QAbstractItemView)
-from devices.models import Manufacture, Device, DeviceLibrary
+    QTableWidget, QTableWidgetItem, QLineEdit, QTabWidget, QDialog, QDialogButtonBox, QAbstractItemView,)
+
+from PySide6.QtCore import QSize
+
+from devices.models import Manufacture
 from devices.constants import SystemType, Interfaces, FeatureList, ChannelType
 from devices.features import Feature
+from .utilities import get_icon_obj
 from pprint import pprint
 
 class DevLibWindow(QWidget):
@@ -67,10 +71,13 @@ class DevLibWindow(QWidget):
         
         d_btn_layout = QHBoxLayout()
         btn_add_device = QPushButton('Add')
+        btn_add_device.setIcon(get_icon_obj('plus-circle'))
         btn_add_device.clicked.connect(self.show_add_device_dlg)
         btn_edit_device = QPushButton('Edit')
+        btn_edit_device.setIcon(get_icon_obj('pencil'))
         btn_edit_device.clicked.connect(self.show_edit_device_dlg)
         btn_del_device = QPushButton('Delete')
+        btn_del_device.setIcon(get_icon_obj('cross-circle'))
         btn_del_device.clicked.connect(self.show_del_device_dlg)
         d_btn_layout.addWidget(btn_add_device)
         d_btn_layout.addWidget(btn_edit_device)
@@ -172,7 +179,18 @@ class DevLibWindow(QWidget):
             dlg_edit_dev.exec()
 
     def show_del_device_dlg(self):
-        pass
+        if self.device_table.currentRow() != -1:
+            del_diag = QMessageBox.warning(
+                self,
+                'Delete Device',
+                'Are you sure you want to delete this device?',
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if del_diag == QMessageBox.Yes:
+                device_id = int(self.device_table.item(self.device_table.currentRow(), 4).text())
+                device_qs = DeviceLibrary.objects.get(pk=device_id)
+                device_qs.delete()
+                self.fill_device_table()
 
 class ManufDialog(QDialog):
     def __init__(self, parent=None, type=None, manuf_id=None):
@@ -302,14 +320,14 @@ class DeviceAddDialog(QDialog):
         des_layout.addWidget(self.txt_des)
         des_layout.addStretch()
 
-        b_layout = QHBoxLayout()
+        btn_layout = QHBoxLayout()
         btn_cancel = QPushButton("Cancel")
         btn_cancel.clicked.connect(self.reject)
-        b_layout.addWidget(btn_cancel)
+        btn_layout.addWidget(btn_cancel)
         btn_add = QPushButton("Add")
         btn_add.clicked.connect(self.add_device)
-        b_layout.addWidget(btn_add)
-        b_layout.addStretch()
+        btn_layout.addWidget(btn_add)
+        btn_layout.addStretch()
 
         msg_layout = QHBoxLayout()
         self.msg_label = QLabel('')
@@ -321,7 +339,7 @@ class DeviceAddDialog(QDialog):
         layout.addLayout(s_layout)
         layout.addLayout(des_layout)
         layout.addSpacing(20)
-        layout.addLayout(b_layout)
+        layout.addLayout(btn_layout)
         layout.addLayout(msg_layout)
         
         layout.addStretch()
@@ -350,6 +368,7 @@ class DeviceEditDialog(QDialog):
         super().__init__(parent)
         
         self.feature_channel_list = []
+        self.device_id = device_id
         
 
         self.setWindowTitle("Edit Device")
@@ -414,14 +433,24 @@ class DeviceEditDialog(QDialog):
 
         feature_btn_layout = QHBoxLayout()
         btn_add_feature = QPushButton("Add")
+        btn_add_feature.setIcon(get_icon_obj('plus-circle'))
         btn_add_feature.clicked.connect(self.add_feature)
         btn_edit_feature = QPushButton("Edit")
-        #btn_edit_feature.clicked.connect(self.edit_feature)
+        btn_edit_feature.setIcon(get_icon_obj('pencil'))
+        btn_edit_feature.clicked.connect(self.edit_feature)
         btn_del_feature = QPushButton("Delete")
-        #btn_del_feature.clicked.connect(self.del_feature)
+        btn_del_feature.setIcon(get_icon_obj('cross-circle'))
+        btn_del_feature.clicked.connect(self.del_feature)
+        btn_move_up = QPushButton()
+        btn_move_up.setIcon(get_icon_obj('arrow-turn-090-left'))
+        btn_move_down = QPushButton()
+        btn_move_down.setIcon(get_icon_obj('arrow-turn-270-left'))
+
         feature_btn_layout.addWidget(btn_add_feature)
-        #feature_btn_layout.addWidget(btn_edit_feature)
+        feature_btn_layout.addWidget(btn_edit_feature)
         feature_btn_layout.addWidget(btn_del_feature)
+        feature_btn_layout.addWidget(btn_move_up)
+        feature_btn_layout.addWidget(btn_move_down)
         feature_btn_layout.addStretch()
 
         feature_table_label_layout = QHBoxLayout()
@@ -511,7 +540,7 @@ class DeviceEditDialog(QDialog):
        
 
     def add_feature(self):
-        dlg = FeatureDialog(self, 'add')
+        dlg = FeatureDialog(self, dlg_type='add', devlib_id=self.device_id)
         dlg.resize(400, 200)
         if dlg.exec():
             self.fill_feature_table()
@@ -526,10 +555,14 @@ class DeviceEditDialog(QDialog):
                 self.fill_feature_table()
                 self.fill_channel_table()
 
+    def del_feature(self):
+        pass
+
 class FeatureDialog(QDialog):
-    def __init__(self, parent=None, dlg_type=None, feature_id=None):
+    def __init__(self, parent=None, dlg_type=None, feature_id=None, devlib_id=None):
         super().__init__(parent)
         self.dlg_type = dlg_type
+        self.devlib_id = devlib_id
         if dlg_type == 'add':
             self.setWindowTitle("Add Feature")
         elif type == 'edit':
@@ -584,9 +617,8 @@ class FeatureDialog(QDialog):
     def add_feature(self):
         parent = self.parent()
         feature = Feature()
-        result_list = feature.feature_channel_list_add(parent.feature_channel_list, self.type_list.currentData(), self.txt_name.text())
-        pprint(result_list)
-        parent.feature_channel_list = result_list
+        #feature.add_feature(self.type_list.currentData(), self.txt_name.text(), self.devlib_id)
+        
         self.accept()
 
        
