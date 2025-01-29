@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QIcon, QTextCharFormat, QFont
 from PySide6.QtWidgets import (QApplication, QMainWindow,
     QTextEdit, QLabel, QMessageBox, QVBoxLayout, QPushButton,
-    QSpinBox, QDockWidget, QWidget)
+    QSpinBox, QDockWidget, QWidget,QMdiArea, QMdiSubWindow)
 
 
 class QEditor(QMainWindow):
@@ -212,13 +212,37 @@ class DemoWindow(QMainWindow):
     def on_button_clicked(self):
         self.label.setText('Button Clicked!')
 
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.mdiArea = QMdiArea()
+        self.setCentralWidget(self.mdiArea)
+
+        self.setWindowTitle("MDI Example")
+
+        # Create a menu bar
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu("File")
+
+        # Add a new document action
+        newAction = fileMenu.addAction("New")
+        newAction.triggered.connect(self.newDocument)
+
+    def newDocument(self):
+        subWindow = QMdiSubWindow()
+        textEdit = QTextEdit()
+        subWindow.setWidget(textEdit)
+        subWindow.setWindowTitle("Untitled")
+        self.mdiArea.addSubWindow(subWindow)
+        subWindow.show()
 
 def example1():
 
     app = QApplication(sys.argv)
 
-    editor = QEditor()
-    editor.show()
+    win = MainWindow()
+    win.show()
 
     sys.exit(app.exec())
 

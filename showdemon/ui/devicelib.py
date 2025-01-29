@@ -1,7 +1,9 @@
-from PySide6.QtWidgets import QWidget, QPushButton, QMessageBox, QVBoxLayout, QLabel, QHBoxLayout, QComboBox, QCheckBox, QRadioButton, QTextEdit
-from PySide6.QtWidgets import   QTableWidget, QTableWidgetItem, QLineEdit, QTabWidget, QDialog, QDialogButtonBox, QAbstractItemView
+from PySide6.QtWidgets import (QWidget, QPushButton, QMessageBox, QVBoxLayout, QLabel, QHBoxLayout, QComboBox,
+    QTableWidget, QTableWidgetItem, QLineEdit, QTabWidget, QDialog, QDialogButtonBox, QAbstractItemView)
 from devices.models import Manufacture, Device, DeviceLibrary
-from devices.constants import SystemType, Interfaces
+from devices.constants import SystemType, Interfaces, FeatureList, ChannelType
+from devices.features import Feature
+from pprint import pprint
 
 class DevLibWindow(QWidget):
     def __init__(self):
@@ -144,8 +146,8 @@ class DevLibWindow(QWidget):
         self.device_table.clear()
         self.device_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.device_table.setSelectionMode
-        self.device_table.setColumnCount(4)
-        self.device_table.setHorizontalHeaderLabels(['Name', 'Manufacture', 'System', 'Description'])
+        self.device_table.setColumnCount(5)
+        self.device_table.setHorizontalHeaderLabels(['Name', 'Manufacture', 'System', 'Description', 'ID'])
         self.device_table.setRowCount(DeviceLibrary.objects.count())
         sys_type = SystemType()
         for i, device in enumerate(DeviceLibrary.objects.all()):
@@ -153,15 +155,21 @@ class DevLibWindow(QWidget):
             self.device_table.setItem(i, 1, QTableWidgetItem(device.manufacture.name))
             self.device_table.setItem(i, 2, QTableWidgetItem(sys_type.get_display(device.system)))
             self.device_table.setItem(i, 3, QTableWidgetItem(device.description))
+            self.device_table.setItem(i, 4, QTableWidgetItem(str(device.pk)))
 
     def show_add_device_dlg(self):
         dlg_add_dev = DeviceAddDialog(self)
         dlg_add_dev.resize(400, 200)
         if dlg_add_dev.exec():
             self.fill_device_table()
+            
 
     def show_edit_device_dlg(self):
-        pass
+        if self.device_table.currentRow() != -1:
+            device_id = int(self.device_table.item(self.device_table.currentRow(), 4).text())
+            dlg_edit_dev = DeviceEditDialog(self, device_id)
+            dlg_edit_dev.resize(600, 800)
+            dlg_edit_dev.exec()
 
     def show_del_device_dlg(self):
         pass
@@ -341,13 +349,22 @@ class DeviceEditDialog(QDialog):
     def __init__(self, parent=None, device_id=None):
         super().__init__(parent)
         
+        self.feature_channel_list = []
         
+
         self.setWindowTitle("Edit Device")
                 
         layout = QVBoxLayout()
         
+        dev_title_layout = QHBoxLayout()
+        lbl_title = QLabel("Device")
+        lbl_title.setStyleSheet("font-weight: bold; color: blue; font-size: 16px;")
+        dev_title_layout.addWidget(lbl_title)
+        dev_title_layout.addStretch()
+
         n_layout = QHBoxLayout()
         lbl_name = QLabel("Name")
+        lbl_name.setMinimumWidth(100)
         self.txt_name = QLineEdit()
         n_layout.addWidget(lbl_name)
         n_layout.addWidget(self.txt_name)
@@ -355,6 +372,7 @@ class DeviceEditDialog(QDialog):
 
         m_layout = QHBoxLayout()
         lbl_manuf = QLabel("Manufacture")
+        lbl_manuf.setMinimumWidth(100)
         self.manuf_list = QComboBox()
         mauf_qs = Manufacture.objects.all()
         for manuf in mauf_qs:
@@ -362,3 +380,213 @@ class DeviceEditDialog(QDialog):
         m_layout.addWidget(lbl_manuf)
         m_layout.addWidget(self.manuf_list)
         m_layout.addStretch()
+
+
+        s_layout = QHBoxLayout()
+        lbl_system = QLabel("System")
+        lbl_system.setMinimumWidth(100)
+        self.lbl_system_name = QLabel("System Name")
+        self.lbl_system_name.setMinimumWidth(100)
+        s_layout.addWidget(lbl_system)
+        s_layout.addWidget(self.lbl_system_name)
+        s_layout.addStretch()
+
+        des_layout = QHBoxLayout()
+        lbl_des = QLabel("Desription")
+        lbl_des.setMinimumWidth(100)
+        self.txt_des = QLineEdit()
+        des_layout.addWidget(lbl_des)
+        des_layout.addWidget(self.txt_des)
+        des_layout.addStretch()
+
+        device_qs = DeviceLibrary.objects.get(pk=device_id)
+        self.txt_name.setText(device_qs.name)
+        self.txt_des.setText(device_qs.description)
+        self.manuf_list.setCurrentText(device_qs.manufacture.name)
+        self.lbl_system_name.setText(SystemType().get_display(device_qs.system))
+
+        feature_layout = QHBoxLayout()
+        lbl_feature = QLabel("Features")
+        lbl_feature.setMinimumWidth(100)
+        lbl_feature.setStyleSheet("font-weight: bold; color: blue; font-size: 16px;")
+        feature_layout.addWidget(lbl_feature)
+        feature_layout.addStretch()
+
+        feature_btn_layout = QHBoxLayout()
+        btn_add_feature = QPushButton("Add")
+        btn_add_feature.clicked.connect(self.add_feature)
+        btn_edit_feature = QPushButton("Edit")
+        #btn_edit_feature.clicked.connect(self.edit_feature)
+        btn_del_feature = QPushButton("Delete")
+        #btn_del_feature.clicked.connect(self.del_feature)
+        feature_btn_layout.addWidget(btn_add_feature)
+        #feature_btn_layout.addWidget(btn_edit_feature)
+        feature_btn_layout.addWidget(btn_del_feature)
+        feature_btn_layout.addStretch()
+
+        feature_table_label_layout = QHBoxLayout()
+        lbl_feature_table = QLabel("Features")
+        lbl_feature_table.setMinimumWidth(100)
+        feature_table_label_layout.addWidget(lbl_feature_table)
+        feature_table_label_layout.addStretch()
+
+        feature_table_layout = QVBoxLayout()
+        self.feature_table = QTableWidget()
+        self.fill_feature_table()
+        feature_table_layout.addWidget(self.feature_table)
+        feature_table_layout.addStretch()
+
+        channel_table_label_layout = QHBoxLayout()
+        lbl_channel_table = QLabel("Channels")
+        lbl_channel_table.setMinimumWidth(100)
+        channel_table_label_layout.addWidget(lbl_channel_table)
+        channel_table_label_layout.addStretch()
+
+        channel_table_layout = QVBoxLayout()
+        self.channel_table = QTableWidget()
+        self.fill_channel_table()
+        channel_table_layout.addWidget(self.channel_table)
+        channel_table_layout.addStretch()
+
+
+
+        
+
+        
+        layout.addLayout(dev_title_layout)
+        layout.addLayout(n_layout)
+        layout.addLayout(m_layout)
+        layout.addLayout(s_layout)
+        layout.addLayout(des_layout)
+        layout.addSpacing(30)
+        layout.addLayout(feature_layout)
+        layout.addLayout(feature_btn_layout)
+        layout.addLayout(feature_table_label_layout)
+        layout.addLayout(feature_table_layout)
+        layout.addLayout(channel_table_label_layout)
+        layout.addLayout(channel_table_layout)
+        layout.addStretch()
+
+
+        self.setLayout(layout)
+
+    def fill_feature_table(self):
+        #print('Fill Feature Table', self.feature_channel_list)
+        self.feature_table.clear()
+        self.feature_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.feature_table.setSelectionMode
+        self.feature_table.setColumnCount(5)
+        self.feature_table.setHorizontalHeaderLabels(['Name', 'Type', 'Channels', 'Order', 'ID'])
+        if self.feature_channel_list != []:
+            feature_list = self.feature_channel_list[0]
+            self.feature_table.setRowCount(len(feature_list))
+            i = 0
+            for feature_dict in feature_list:
+                self.feature_table.setItem(i, 0, QTableWidgetItem(feature_dict['name']))
+                self.feature_table.setItem(i, 1, QTableWidgetItem(feature_dict['display']))
+                self.feature_table.setItem(i, 2, QTableWidgetItem(str(feature_dict['channel_count'])))
+                self.feature_table.setItem(i, 3, QTableWidgetItem(str(feature_dict['sort_order'])))
+                self.feature_table.setItem(i, 4, QTableWidgetItem(str(feature_dict['feature_id'])))
+                i += 1
+
+    def fill_channel_table(self):
+        self.channel_table.clear()
+        self.channel_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.channel_table.setSelectionMode
+        self.channel_table.setColumnCount(5)
+        self.channel_table.setHorizontalHeaderLabels(['Name', 'Type', 'Parent Order', 'Order', 'ID'])
+        if self.feature_channel_list != []:
+            channel_list = self.feature_channel_list[1]
+            self.channel_table.setRowCount(len(channel_list))
+            i = 0
+            for channel_dict in channel_list:
+                print('Channel Dict:', channel_dict)
+                self.channel_table.setItem(i, 0, QTableWidgetItem(channel_dict['name']))
+                self.channel_table.setItem(i, 1, QTableWidgetItem(channel_dict['display']))
+                self.channel_table.setItem(i, 2, QTableWidgetItem(str(channel_dict['parent_sort_order'])))
+                self.channel_table.setItem(i, 3, QTableWidgetItem(str(channel_dict['sort_order'])))
+                self.channel_table.setItem(i, 4, QTableWidgetItem(str(channel_dict['channel_id'])))
+                i += 1
+        
+       
+
+    def add_feature(self):
+        dlg = FeatureDialog(self, 'add')
+        dlg.resize(400, 200)
+        if dlg.exec():
+            self.fill_feature_table()
+            self.fill_channel_table()
+
+    def edit_feature(self):
+        if self.feature_table.currentRow() != -1:
+            feature_id = int(self.feature_table.item(self.feature_table.currentRow(), 4).text())
+            dlg = FeatureDialog(self, 'edit', feature_id)
+            dlg.resize(400, 200)
+            if dlg.exec():
+                self.fill_feature_table()
+                self.fill_channel_table()
+
+class FeatureDialog(QDialog):
+    def __init__(self, parent=None, dlg_type=None, feature_id=None):
+        super().__init__(parent)
+        self.dlg_type = dlg_type
+        if dlg_type == 'add':
+            self.setWindowTitle("Add Feature")
+        elif type == 'edit':
+            self.setWindowTitle("Edit Feature")
+                
+        layout = QVBoxLayout()
+        
+        type_layout = QHBoxLayout()
+        lbl_type = QLabel("Type")
+        self.type_list = QComboBox()
+        for feature in FeatureList():
+            self.type_list.addItem(feature[1], feature[0])
+        self.type_list.currentIndexChanged.connect(self.change_feature)
+        if dlg_type=='edit':
+            self.type_list.setEnabled(False)
+        type_layout.addWidget(lbl_type)
+        type_layout.addWidget(self.type_list)
+        type_layout.addStretch()
+
+        name_layout = QHBoxLayout()
+        lbl_name = QLabel("Name")
+        self.txt_name = QLineEdit()
+        name_layout.addWidget(lbl_name)
+        name_layout.addWidget(self.txt_name)
+        name_layout.addStretch()
+        
+        btn_layout = QHBoxLayout()
+        btn_cancel = QPushButton("Cancel")
+        btn_cancel.clicked.connect(self.reject)
+        btn_layout.addWidget(btn_cancel)
+        if dlg_type == 'add':
+            btn_add = QPushButton("Add")
+            btn_add.clicked.connect(self.add_feature)
+            btn_layout.addWidget(btn_add)
+            self.txt_name.setText(self.type_list.currentText())
+        elif dlg_type == 'edit':
+            btn_edit = QPushButton("Save")
+            btn_edit.clicked.connect(self.edit_feature)
+            btn_layout.addWidget(btn_edit)
+           
+
+        layout.addLayout(type_layout)
+        layout.addLayout(name_layout)
+        layout.addLayout(btn_layout)
+        layout.addStretch()
+        self.setLayout(layout)
+
+    def change_feature(self):
+        if self.dlg_type=='add':
+            self.txt_name.setText(self.type_list.currentText())
+
+    def add_feature(self):
+        parent = self.parent()
+        feature = Feature()
+        result_list = feature.feature_channel_list_add(parent.feature_channel_list, self.type_list.currentData(), self.txt_name.text())
+        pprint(result_list)
+        parent.feature_channel_list = result_list
+        self.accept()
+
+       

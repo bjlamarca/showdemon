@@ -23,18 +23,23 @@ class Interfaces():
         return iter(self.INTERFACE_CHOICES)
 
 
-#(Name, Display, Feature Type )
+#(Name, Display , Feature Type )
 class FeatureList():
     FEATURE_LIST = (
-        ('RGB','RGB'),
-        ('DIMM', 'Dimmer'),
-        ('COLORWHL', 'Color Wheel'),
-        ('GOBOWHL', 'Gobo Wheel'),
-        ('SELECT', 'Selector')
+        ('DMX_RGB','DMX RGB'),
+        ('DMX_DIMM', 'DMX Dimmer'),
+        ('DMX_COLORWHL', 'DMX Color Wheel'),
+        ('DMX_GOBOWHL', 'DMX Gobo Wheel'),
+        ('DMX_SELECT', 'DMX Selector')
     )
 
     def __iter__(self):
         return iter(self.FEATURE_LIST)
+    def get_display(self, feature):
+        for choice in self.FEATURE_LIST:
+            if choice[0] == feature:
+                return choice[1]
+        return None
     
 class ChannelType():
     CHANNEL_TYPE_LIST = (
@@ -55,3 +60,8 @@ class ChannelType():
 
     def __iter__(self):
         return iter(self.CHANNEL_TYPE_LIST)
+    def get_display(self, channel):
+        for choice in self.CHANNEL_TYPE_LIST:
+            if choice[0] == channel:
+                return choice[1]
+        return None

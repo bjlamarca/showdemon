@@ -148,7 +148,8 @@ class MainWindow(QMainWindow):
 def app_thread():
     app = QApplication(sys.argv)
     window = MainWindow()
-    window.showMaximized()
+    window.setGeometry(200, 200, 800, 600)
+    window.show()
     app.exec_()
     
 
