@@ -25,13 +25,18 @@ class DevLibWindow(QWidget):
         self.tab_widget.addTab(self.tab_device, "Devices")
         self.tab_widget.addTab(self.tab_manuf, "Manufacture")
         
-        self.tab_widget.addTab(self.tab3, "Tab 3")
-
+        
+        msg_layout = QHBoxLayout()
+        self.msg_label = QLabel('')
+        msg_layout.addWidget(self.msg_label)
+        msg_layout.addStretch()
+        
         self.layout.addWidget(self.tab_widget)
+        self.layout.addLayout(msg_layout)
 
         self.init_tab_manuf()
         self.init_tab_device()
-        self.initTab3()
+        
 
     def init_tab_manuf(self):
         m_m_layout = QVBoxLayout(self.tab_manuf)
@@ -41,10 +46,13 @@ class DevLibWindow(QWidget):
         m_btn_layout = QHBoxLayout()
         btn_add_manuf = QPushButton('Add')
         btn_add_manuf.clicked.connect(self.show_add_manuf_dlg)
+        btn_add_manuf.setIcon(get_icon_obj('plus-circle'))
         btn_edit_manuf = QPushButton('Edit')
         btn_edit_manuf.clicked.connect(self.show_edit_manuf_dlg)
+        btn_edit_manuf.setIcon(get_icon_obj('pencil'))
         btn_del_manuf = QPushButton('Delete')
         btn_del_manuf.clicked.connect(self.show_del_manuf_dlg)
+        btn_del_manuf.setIcon(get_icon_obj('cross-circle'))
         m_btn_layout.addWidget(btn_add_manuf)
         m_btn_layout.addWidget(btn_edit_manuf)
         m_btn_layout.addWidget(btn_del_manuf)
@@ -95,24 +103,18 @@ class DevLibWindow(QWidget):
         d_tbl_layout.addWidget(self.device_table)
         d_tbl_layout.addStretch()
 
-        msg_layout = QHBoxLayout()
-        self.msg_label = QLabel('')
-        msg_layout.addWidget(self.msg_label)
-        msg_layout.addStretch()
+        
 
         d_layout.addLayout(d_btn_layout)
         d_layout.addLayout(d_tbl_layout)
-        d_layout.addLayout(msg_layout)
+        
         d_layout.addStretch()
         
         d_h_layout.addLayout(d_layout)
         d_h_layout.addStretch()
         d_m_layout.addLayout(d_h_layout)
 
-    def initTab3(self):
-        layout = QVBoxLayout(self.tab3)
-        label = QLabel("Content of Tab 3")
-        layout.addWidget(label)
+    
 
     def fill_manuf_table(self):
         self.manuf_table.clear()
@@ -154,10 +156,16 @@ class DevLibWindow(QWidget):
                 QMessageBox.Yes | QMessageBox.No
             )
             if del_diag == QMessageBox.Yes:
-                manuf_id = int(self.manuf_table.item(self.manuf_table.currentRow(), 2).text())
-                manuf_qs = Manufacture.objects.get(pk=manuf_id)
-                manuf_qs.delete()
-                self.fill_manuf_table()
+                try:
+                    manuf_id = int(self.manuf_table.item(self.manuf_table.currentRow(), 2).text())
+                    manuf_qs = Manufacture.objects.get(pk=manuf_id)
+                    manuf_qs.delete()
+                except Exception as e:
+                    if type(e).__name__ == 'ProtectedError':
+                        self.msg_label.setText("Device is in use and cannot be deleted")
+                        self.msg_label.setStyleSheet("color: red")
+                else:
+                    self.fill_manuf_table()
 
     def fill_device_table(self):
         self.device_table.clear()
@@ -506,8 +514,10 @@ class DeviceEditFeatureDialog(QDialog):
         btn_del_feature.setIcon(get_icon_obj('cross-circle'))
         btn_del_feature.clicked.connect(self.del_feature)
         btn_move_up = QPushButton()
+        btn_move_up.clicked.connect(self.move_up)
         btn_move_up.setIcon(get_icon_obj('arrow-turn-090-left'))
         btn_move_down = QPushButton()
+        btn_move_down.clicked.connect(self.move_down)
         btn_move_down.setIcon(get_icon_obj('arrow-turn-270-left'))
 
         feature_btn_layout.addWidget(btn_add_feature)
@@ -577,6 +587,7 @@ class DeviceEditFeatureDialog(QDialog):
         self.feature_table.setColumnCount(4)
         self.feature_table.setHorizontalHeaderLabels(['Name', 'Type', 'Order', 'ID'])
         self.feature_table.setRowCount(feature_count)
+        self.feature_table.resize(100, 200)
         i = 0
         for feature in feature_qs:
             self.feature_table.setItem(i, 0, QTableWidgetItem(feature.name))
@@ -596,6 +607,7 @@ class DeviceEditFeatureDialog(QDialog):
             channel_qs = LibraryChannel.objects.filter(device_feature=feature).order_by('sort_order')
             channel_count += channel_qs.count()
         self.channel_table.setRowCount(channel_count)
+        self.channel_table.setMinimumHeight(300)
         i = 0
         for feature in feature_qs:
             channel_qs = LibraryChannel.objects.filter(device_feature=feature).order_by('sort_order')
@@ -637,6 +649,18 @@ class DeviceEditFeatureDialog(QDialog):
             if del_diag == QMessageBox.Yes:
                 feature = Feature()
                 feature.delete_feature(int(self.feature_table.item(self.feature_table.currentRow(), 3).text()))
+                self.fill_feature_tables()
+
+    def move_up(self):
+        if self.feature_table.currentRow() != -1:
+            feature = Feature()
+            if feature.move_feature(int(self.feature_table.item(self.feature_table.currentRow(), 3).text()), 'up'):
+                self.fill_feature_tables()
+
+    def move_down(self):
+        if self.feature_table.currentRow() != -1:
+            feature = Feature()
+            if feature.move_feature(int(self.feature_table.item(self.feature_table.currentRow(), 3).text()), 'down'):
                 self.fill_feature_tables()
 
 class FeatureDialog(QDialog):

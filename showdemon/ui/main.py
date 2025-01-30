@@ -8,6 +8,7 @@ from PySide6.QtGui import  QAction
 
 from devices.interfaces import DMXInterface
 from .devicelib import DevLibWindow
+from .device import DeviceWindow
 from devices.midi import Midi
 
 
@@ -33,12 +34,16 @@ class MainWindow(QMainWindow):
         menu_bar.addMenu(file_menu)
 
         win_menu = QMenu('Window', self)
+        
         dev_liv_action = QAction('Device Library', self)
         dev_liv_action.triggered.connect(self.show_devlib_window)
         win_menu.addAction(dev_liv_action)
+        
+        device_action = QAction('Device', self)
+        device_action.triggered.connect(self.show_device_window)
+        win_menu.addAction(device_action)
+
         menu_bar.addMenu(win_menu)
-
-
 
 
         label_dmx_status = QLabel('DMX Status')
@@ -83,7 +88,7 @@ class MainWindow(QMainWindow):
         
         label = QLabel("Hello World")
        
-
+        self.show_device_window(True)
           
         # Function to add widget with label
         def add_widget_with_label(layout, widget, label_text):
@@ -131,11 +136,7 @@ class MainWindow(QMainWindow):
         midi = Midi()
         midi.stop_listen()
 
-    def show_devlib_window(self, checked):
-        print('Checked:', checked)
-        self.dev_lib_win = DevLibWindow()
-        self.dev_lib_win.resize(QSize(600, 900))
-        self.dev_lib_win.show()
+    
    
     def on_button_start_dmx_clicked(self):
         dmx = DMXInterface()
@@ -168,7 +169,14 @@ class MainWindow(QMainWindow):
         dmx.update(2,0)
         dmx.update(3,255)
 
-
+    def show_devlib_window(self, checked):
+        self.dev_lib_win = DevLibWindow()
+        self.dev_lib_win.resize(QSize(600, 900))
+        self.dev_lib_win.show()
+    def show_device_window(self, checked):
+        self.device_win = DeviceWindow()
+        self.device_win.resize(QSize(600, 900))
+        self.device_win.show()
 
 def app_thread():
     app = QApplication(sys.argv)

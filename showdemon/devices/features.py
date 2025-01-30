@@ -107,9 +107,27 @@ class Feature():
             feature.save()
             sort_order += 1
 
-
-            
-
+    
+    def move_feature(self, feature_id, direction):
+        feature_qs = DeviceFeature.objects.get(pk=feature_id)
+        lib_dev = feature_qs.library_device
+        feature_list = DeviceFeature.objects.filter(library_device=lib_dev).order_by('sort_order')
+        feature_sort_order = feature_qs.sort_order
+        if direction == 'up':
+            if feature_sort_order == 1:
+                return False
+            new_sort = feature_sort_order - 1
+        else:
+            new_sort = feature_sort_order + 1
+            if new_sort > len(feature_list):
+                return False
+        switch_feature = DeviceFeature.objects.get(library_device=lib_dev, sort_order=new_sort)
+        feature_qs.sort_order = new_sort
+        switch_feature.sort_order = feature_sort_order    
+        switch_feature.save()
+        feature_qs.save()
+        
+        return True
 
 class DMX_RGB():
     #Adds the  R, G, and B Items to a list.  Can be used for display or to create records in the DeviceFeatureItems Model  
