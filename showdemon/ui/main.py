@@ -8,7 +8,7 @@ from PySide6.QtGui import  QAction
 
 from devices.interfaces import DMXInterface
 from .devicelib import DevLibWindow
-
+from devices.midi import Midi
 
 
         
@@ -54,18 +54,29 @@ class MainWindow(QMainWindow):
         second_layout.addWidget(button_test_dmx)
         second_layout.addStretch()
 
-        a_label = QLabel("Hello World")
         
-        third_layout = QVBoxLayout()
         
-        third_layout.addWidget(a_label)
-        third_layout.addStretch()
-        #third_layout.sizeConstraint = QLayout.SetFixedSize
+        midi_layout = QVBoxLayout()
+        midi_label = QLabel("Midi")
+        btn_start_midi = QPushButton("Start")
+        btn_start_midi.clicked.connect(self.start_midi)
+        btn_listen_midi = QPushButton("Listen")
+        btn_listen_midi.clicked.connect(self.listen_midi)
+        btn_stop_midi = QPushButton("Stop")
+        btn_stop_midi.clicked.connect(self.stop_midi)
+
+        midi_layout.addWidget(midi_label)
+        midi_layout.addWidget(btn_start_midi)
+        midi_layout.addWidget(btn_listen_midi)
+        midi_layout.addWidget(btn_stop_midi)
+        midi_layout.addStretch()
+        
 
        
         h_layout = QHBoxLayout()
         h_layout.addLayout(second_layout)
-        h_layout.addLayout(third_layout)
+        h_layout.addSpacing(30) 
+        h_layout.addLayout(midi_layout)
         h_layout.addStretch()
         
         main_layout.addLayout(h_layout)
@@ -85,7 +96,7 @@ class MainWindow(QMainWindow):
 
               
 
-        self.show_devlib_window(True)
+        #self.show_devlib_window(True)
         
         # # QLabel
         # self.label_dmx_status = QLabel('DMX Status')
@@ -105,7 +116,21 @@ class MainWindow(QMainWindow):
         # self.button_test_dmx = QPushButton('Test')
         # self.button_test_dmx.clicked.connect(self.on_button_test_dmx_clicked)
         # add_widget_with_label(main_layout, self.button_test_dmx, 'QPushButton:')
+    def start_midi(self):
+        print("Start Midi")
+        midi = Midi()
+        midi.connect()
+
+    def listen_midi(self):
+        print("Listen Midi")
+        midi = Midi()
+        midi.start_listen()
     
+    def stop_midi(self):
+        print("Stop Midi")
+        midi = Midi()
+        midi.stop_listen()
+
     def show_devlib_window(self, checked):
         print('Checked:', checked)
         self.dev_lib_win = DevLibWindow()

@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (QWidget, QPushButton, QMessageBox, QVBoxLayout, Q
 
 from PySide6.QtCore import QSize
 
-from devices.models import Manufacture
+from devices.models import Manufacture, LibraryDevice, DeviceFeature, LibraryChannel
 from devices.constants import SystemType, Interfaces, FeatureList, ChannelType
 from devices.features import Feature
 from .utilities import get_icon_obj
@@ -12,7 +12,7 @@ from pprint import pprint
 class DevLibWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Show Demon - Device Library")
+        self.setWindowTitle("Device Library")
        
 
         self.layout = QVBoxLayout(self)
@@ -79,9 +79,13 @@ class DevLibWindow(QWidget):
         btn_del_device = QPushButton('Delete')
         btn_del_device.setIcon(get_icon_obj('cross-circle'))
         btn_del_device.clicked.connect(self.show_del_device_dlg)
+        btn_edit_device_features = QPushButton('Edit Features')
+        btn_edit_device_features.setIcon(get_icon_obj('traffic-light--pencil'))
+        btn_edit_device_features.clicked.connect(self.show_edit_device_feature_dlg)
         d_btn_layout.addWidget(btn_add_device)
         d_btn_layout.addWidget(btn_edit_device)
         d_btn_layout.addWidget(btn_del_device)
+        d_btn_layout.addWidget(btn_edit_device_features)
         d_btn_layout.addStretch()
 
         d_tbl_layout = QHBoxLayout()
@@ -91,8 +95,14 @@ class DevLibWindow(QWidget):
         d_tbl_layout.addWidget(self.device_table)
         d_tbl_layout.addStretch()
 
+        msg_layout = QHBoxLayout()
+        self.msg_label = QLabel('')
+        msg_layout.addWidget(self.msg_label)
+        msg_layout.addStretch()
+
         d_layout.addLayout(d_btn_layout)
         d_layout.addLayout(d_tbl_layout)
+        d_layout.addLayout(msg_layout)
         d_layout.addStretch()
         
         d_h_layout.addLayout(d_layout)
@@ -155,9 +165,9 @@ class DevLibWindow(QWidget):
         self.device_table.setSelectionMode
         self.device_table.setColumnCount(5)
         self.device_table.setHorizontalHeaderLabels(['Name', 'Manufacture', 'System', 'Description', 'ID'])
-        self.device_table.setRowCount(DeviceLibrary.objects.count())
+        self.device_table.setRowCount(LibraryDevice.objects.count())
         sys_type = SystemType()
-        for i, device in enumerate(DeviceLibrary.objects.all()):
+        for i, device in enumerate(LibraryDevice.objects.all()):
             self.device_table.setItem(i, 0, QTableWidgetItem(device.name))
             self.device_table.setItem(i, 1, QTableWidgetItem(device.manufacture.name))
             self.device_table.setItem(i, 2, QTableWidgetItem(sys_type.get_display(device.system)))
@@ -165,18 +175,28 @@ class DevLibWindow(QWidget):
             self.device_table.setItem(i, 4, QTableWidgetItem(str(device.pk)))
 
     def show_add_device_dlg(self):
-        dlg_add_dev = DeviceAddDialog(self)
+        dlg_add_dev = DeviceAddEditDialog(self, 'add')
         dlg_add_dev.resize(400, 200)
         if dlg_add_dev.exec():
             self.fill_device_table()
             
-
     def show_edit_device_dlg(self):
         if self.device_table.currentRow() != -1:
             device_id = int(self.device_table.item(self.device_table.currentRow(), 4).text())
-            dlg_edit_dev = DeviceEditDialog(self, device_id)
+            dlg_edit_dev = DeviceAddEditDialog(self, 'edit', device_id)
+            dlg_edit_dev.resize(400, 200)
+            if dlg_edit_dev.exec():
+                self.fill_device_table()
+
+    def show_edit_device_feature_dlg(self):
+        if self.device_table.currentRow() != -1:
+            device_id = int(self.device_table.item(self.device_table.currentRow(), 4).text())
+            dlg_edit_dev = DeviceEditFeatureDialog(self, device_id)
             dlg_edit_dev.resize(600, 800)
-            dlg_edit_dev.exec()
+            if dlg_edit_dev.exec():
+                self.fill_device_table()
+    
+    
 
     def show_del_device_dlg(self):
         if self.device_table.currentRow() != -1:
@@ -187,10 +207,16 @@ class DevLibWindow(QWidget):
                 QMessageBox.Yes | QMessageBox.No
             )
             if del_diag == QMessageBox.Yes:
-                device_id = int(self.device_table.item(self.device_table.currentRow(), 4).text())
-                device_qs = DeviceLibrary.objects.get(pk=device_id)
-                device_qs.delete()
-                self.fill_device_table()
+                try:
+                    device_id = int(self.device_table.item(self.device_table.currentRow(), 4).text())
+                    device_qs = LibraryDevice.objects.get(pk=device_id)
+                    device_qs.delete()
+                except Exception as e:
+                    if type(e).__name__ == 'ProtectedError':
+                        self.msg_label.setText("Device is in use and cannot be deleted")
+                        self.msg_label.setStyleSheet("color: red")
+                else:
+                    self.fill_device_table()
 
 class ManufDialog(QDialog):
     def __init__(self, parent=None, type=None, manuf_id=None):
@@ -280,22 +306,31 @@ class ManufDialog(QDialog):
             # self.msg_label.adjustSize()
             # self.msg_label.show()
 
-class DeviceAddDialog(QDialog):
-    def __init__(self, parent=None, device_id=None):
+class DeviceAddEditDialog(QDialog):
+    def __init__(self, parent=None, dlg_type=None, device_id=None):
         super().__init__(parent)
-        self.setWindowTitle("Add Device")
+        if dlg_type == 'add':
+            self.setWindowTitle("Add Device")
+        elif dlg_type == 'edit':
+            self.setWindowTitle("Edit Device")
+            device_qs = LibraryDevice.objects.get(pk=device_id)
+            self.device_id = device_id
                 
         layout = QVBoxLayout()
         
         n_layout = QHBoxLayout()
         lbl_name = QLabel("Name")
+        lbl_name.setMinimumWidth(100)
         self.txt_name = QLineEdit()
+        if dlg_type == 'edit':
+            self.txt_name.setText(device_qs.name)
         n_layout.addWidget(lbl_name)
         n_layout.addWidget(self.txt_name)
         n_layout.addStretch()
 
         m_layout = QHBoxLayout()
         lbl_manuf = QLabel("Manufacture")
+        lbl_manuf.setMinimumWidth(100)
         self.manuf_list = QComboBox()
         mauf_qs = Manufacture.objects.all()
         for manuf in mauf_qs:
@@ -306,16 +341,26 @@ class DeviceAddDialog(QDialog):
 
         s_layout = QHBoxLayout()
         lbl_system = QLabel("System")
-        self.system_list = QComboBox()
-        for system in SystemType():
-            self.system_list.addItem(system[1], system[0])
+        lbl_system.setMinimumWidth(100)
         s_layout.addWidget(lbl_system)
-        s_layout.addWidget(self.system_list)
+        if dlg_type == 'add':
+            self.system_list = QComboBox()
+            for system in SystemType():
+                self.system_list.addItem(system[1], system[0])
+            s_layout.addWidget(self.system_list)
+        elif dlg_type == 'edit':
+            self.lbl_system_name = QLabel(device_qs.system)
+            s_layout.addWidget(self.lbl_system_name)
+        
+        
         s_layout.addStretch()
 
         des_layout = QHBoxLayout()
         lbl_des = QLabel("Desription")
+        lbl_des.setMinimumWidth(100)
         self.txt_des = QLineEdit()
+        if dlg_type == 'edit':
+            self.txt_des.setText(device_qs.description)
         des_layout.addWidget(lbl_des)
         des_layout.addWidget(self.txt_des)
         des_layout.addStretch()
@@ -324,9 +369,14 @@ class DeviceAddDialog(QDialog):
         btn_cancel = QPushButton("Cancel")
         btn_cancel.clicked.connect(self.reject)
         btn_layout.addWidget(btn_cancel)
-        btn_add = QPushButton("Add")
-        btn_add.clicked.connect(self.add_device)
-        btn_layout.addWidget(btn_add)
+        if dlg_type == 'add':
+            btn_add = QPushButton("Add")
+            btn_add.clicked.connect(self.add_device)
+            btn_layout.addWidget(btn_add)
+        elif dlg_type == 'edit':
+            btn_edit = QPushButton("Save")
+            btn_edit.clicked.connect(self.save_device)
+            btn_layout.addWidget(btn_edit)
         btn_layout.addStretch()
 
         msg_layout = QHBoxLayout()
@@ -351,7 +401,7 @@ class DeviceAddDialog(QDialog):
             if name != "":
                 print('Add Device', self.manuf_list.currentData(), self.system_list.currentData())
                 manuf_qs = Manufacture.objects.get(pk=int(self.manuf_list.currentData()))
-                new_device = DeviceLibrary()
+                new_device = LibraryDevice()
                 new_device.name = name
                 new_device.manufacture = manuf_qs
                 new_device.system = self.system_list.currentData()
@@ -362,13 +412,27 @@ class DeviceAddDialog(QDialog):
                 self.msg_label.setText("Name cannot be empty")
                 self.msg_label.setStyleSheet("color: red")
 
+    def save_device(self):
+        if self.txt_name.text() != "":
+            device_qs = LibraryDevice.objects.get(pk=self.device_id)
+            device_qs.name = self.txt_name.text()
+            device_qs.manufacture = Manufacture.objects.get(pk=int(self.manuf_list.currentData()))
+            device_qs.description = self.txt_des.text()
+            device_qs.save()
+            self.accept()
+        else:
+            self.msg_label.setText("Name cannot be empty")
+            self.msg_label.setStyleSheet("color: red")
+    
 
-class DeviceEditDialog(QDialog):
+
+class DeviceEditFeatureDialog(QDialog):
     def __init__(self, parent=None, device_id=None):
         super().__init__(parent)
         
         self.feature_channel_list = []
         self.device_id = device_id
+        device_qs = LibraryDevice.objects.get(pk=device_id)
         
 
         self.setWindowTitle("Edit Device")
@@ -384,20 +448,17 @@ class DeviceEditDialog(QDialog):
         n_layout = QHBoxLayout()
         lbl_name = QLabel("Name")
         lbl_name.setMinimumWidth(100)
-        self.txt_name = QLineEdit()
+        lbl_name_text = QLabel(device_qs.name)
         n_layout.addWidget(lbl_name)
-        n_layout.addWidget(self.txt_name)
+        n_layout.addWidget(lbl_name_text)
         n_layout.addStretch()
 
         m_layout = QHBoxLayout()
         lbl_manuf = QLabel("Manufacture")
         lbl_manuf.setMinimumWidth(100)
-        self.manuf_list = QComboBox()
-        mauf_qs = Manufacture.objects.all()
-        for manuf in mauf_qs:
-            self.manuf_list.addItem(manuf.name, manuf.pk)
+        lbl_manuf_name = QLabel(device_qs.manufacture.name)
         m_layout.addWidget(lbl_manuf)
-        m_layout.addWidget(self.manuf_list)
+        m_layout.addWidget(lbl_manuf_name)
         m_layout.addStretch()
 
 
@@ -405,6 +466,7 @@ class DeviceEditDialog(QDialog):
         lbl_system = QLabel("System")
         lbl_system.setMinimumWidth(100)
         self.lbl_system_name = QLabel("System Name")
+        self.lbl_system_name.setText(SystemType().get_display(device_qs.system))
         self.lbl_system_name.setMinimumWidth(100)
         s_layout.addWidget(lbl_system)
         s_layout.addWidget(self.lbl_system_name)
@@ -413,17 +475,19 @@ class DeviceEditDialog(QDialog):
         des_layout = QHBoxLayout()
         lbl_des = QLabel("Desription")
         lbl_des.setMinimumWidth(100)
-        self.txt_des = QLineEdit()
+        lbl_des_text = QLabel(device_qs.description)
         des_layout.addWidget(lbl_des)
-        des_layout.addWidget(self.txt_des)
+        des_layout.addWidget(lbl_des_text)
         des_layout.addStretch()
 
-        device_qs = DeviceLibrary.objects.get(pk=device_id)
-        self.txt_name.setText(device_qs.name)
-        self.txt_des.setText(device_qs.description)
-        self.manuf_list.setCurrentText(device_qs.manufacture.name)
-        self.lbl_system_name.setText(SystemType().get_display(device_qs.system))
+        
+        
+        
+        
+        
+        
 
+        
         feature_layout = QHBoxLayout()
         lbl_feature = QLabel("Features")
         lbl_feature.setMinimumWidth(100)
@@ -461,7 +525,6 @@ class DeviceEditDialog(QDialog):
 
         feature_table_layout = QVBoxLayout()
         self.feature_table = QTableWidget()
-        self.fill_feature_table()
         feature_table_layout.addWidget(self.feature_table)
         feature_table_layout.addStretch()
 
@@ -473,13 +536,13 @@ class DeviceEditDialog(QDialog):
 
         channel_table_layout = QVBoxLayout()
         self.channel_table = QTableWidget()
-        self.fill_channel_table()
+        
         channel_table_layout.addWidget(self.channel_table)
         channel_table_layout.addStretch()
 
 
 
-        
+        self.fill_feature_tables()
 
         
         layout.addLayout(dev_title_layout)
@@ -499,64 +562,82 @@ class DeviceEditDialog(QDialog):
 
         self.setLayout(layout)
 
-    def fill_feature_table(self):
+    
+    
+    def fill_feature_tables(self):
+        libdev_qs = LibraryDevice.objects.get(pk=self.device_id)
+        feature_qs = DeviceFeature.objects.filter(library_device=libdev_qs).order_by('sort_order')
+        feature_count = feature_qs.count()
+    
+    
         #print('Fill Feature Table', self.feature_channel_list)
         self.feature_table.clear()
         self.feature_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.feature_table.setSelectionMode
-        self.feature_table.setColumnCount(5)
-        self.feature_table.setHorizontalHeaderLabels(['Name', 'Type', 'Channels', 'Order', 'ID'])
-        if self.feature_channel_list != []:
-            feature_list = self.feature_channel_list[0]
-            self.feature_table.setRowCount(len(feature_list))
-            i = 0
-            for feature_dict in feature_list:
-                self.feature_table.setItem(i, 0, QTableWidgetItem(feature_dict['name']))
-                self.feature_table.setItem(i, 1, QTableWidgetItem(feature_dict['display']))
-                self.feature_table.setItem(i, 2, QTableWidgetItem(str(feature_dict['channel_count'])))
-                self.feature_table.setItem(i, 3, QTableWidgetItem(str(feature_dict['sort_order'])))
-                self.feature_table.setItem(i, 4, QTableWidgetItem(str(feature_dict['feature_id'])))
-                i += 1
+        self.feature_table.setColumnCount(4)
+        self.feature_table.setHorizontalHeaderLabels(['Name', 'Type', 'Order', 'ID'])
+        self.feature_table.setRowCount(feature_count)
+        i = 0
+        for feature in feature_qs:
+            self.feature_table.setItem(i, 0, QTableWidgetItem(feature.name))
+            self.feature_table.setItem(i, 1, QTableWidgetItem(feature.feature_class))
+            self.feature_table.setItem(i, 2, QTableWidgetItem(str(feature.sort_order)))
+            self.feature_table.setItem(i, 3, QTableWidgetItem(str(feature.pk)))
+            i += 1
 
-    def fill_channel_table(self):
         self.channel_table.clear()
         self.channel_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.channel_table.setSelectionMode
-        self.channel_table.setColumnCount(5)
-        self.channel_table.setHorizontalHeaderLabels(['Name', 'Type', 'Parent Order', 'Order', 'ID'])
-        if self.feature_channel_list != []:
-            channel_list = self.feature_channel_list[1]
-            self.channel_table.setRowCount(len(channel_list))
-            i = 0
-            for channel_dict in channel_list:
-                print('Channel Dict:', channel_dict)
-                self.channel_table.setItem(i, 0, QTableWidgetItem(channel_dict['name']))
-                self.channel_table.setItem(i, 1, QTableWidgetItem(channel_dict['display']))
-                self.channel_table.setItem(i, 2, QTableWidgetItem(str(channel_dict['parent_sort_order'])))
-                self.channel_table.setItem(i, 3, QTableWidgetItem(str(channel_dict['sort_order'])))
-                self.channel_table.setItem(i, 4, QTableWidgetItem(str(channel_dict['channel_id'])))
-                i += 1
-        
-       
+        self.channel_table.setColumnCount(4)
+        self.channel_table.setHorizontalHeaderLabels(['Name', 'Feature', 'Type', 'Order', 'ID'])
 
+        channel_count  = 0
+        for feature in feature_qs:
+            channel_qs = LibraryChannel.objects.filter(device_feature=feature).order_by('sort_order')
+            channel_count += channel_qs.count()
+        self.channel_table.setRowCount(channel_count)
+        i = 0
+        for feature in feature_qs:
+            channel_qs = LibraryChannel.objects.filter(device_feature=feature).order_by('sort_order')
+            for channel in channel_qs:
+                self.channel_table.setItem(i, 0, QTableWidgetItem(channel.name))
+                self.channel_table.setItem(i, 1, QTableWidgetItem(feature.name))
+                self.channel_table.setItem(i, 2, QTableWidgetItem(channel.channel_type))
+                self.channel_table.setItem(i, 3, QTableWidgetItem(str(channel.sort_order)))
+                self.channel_table.setItem(i, 4, QTableWidgetItem(str(channel.pk)))
+                i += 1    
+            
+       
+        
+   
     def add_feature(self):
         dlg = FeatureDialog(self, dlg_type='add', devlib_id=self.device_id)
         dlg.resize(400, 200)
         if dlg.exec():
-            self.fill_feature_table()
-            self.fill_channel_table()
+            self.fill_feature_tables()
+            
 
     def edit_feature(self):
         if self.feature_table.currentRow() != -1:
-            feature_id = int(self.feature_table.item(self.feature_table.currentRow(), 4).text())
+            feature_id = int(self.feature_table.item(self.feature_table.currentRow(), 3).text())
             dlg = FeatureDialog(self, 'edit', feature_id)
             dlg.resize(400, 200)
             if dlg.exec():
-                self.fill_feature_table()
-                self.fill_channel_table()
+                self.fill_feature_tables()
+                
 
     def del_feature(self):
-        pass
+        if self.feature_table.currentRow() != -1:
+            del_diag = QMessageBox.warning(
+                self,
+                'Delete Feature',
+                'Are you sure you want to delete this feature?',
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if del_diag == QMessageBox.Yes:
+                feature = Feature()
+                feature.delete_feature(int(self.feature_table.item(self.feature_table.currentRow(), 3).text()))
+                self.fill_feature_tables()
 
 class FeatureDialog(QDialog):
     def __init__(self, parent=None, dlg_type=None, feature_id=None, devlib_id=None):
@@ -565,8 +646,9 @@ class FeatureDialog(QDialog):
         self.devlib_id = devlib_id
         if dlg_type == 'add':
             self.setWindowTitle("Add Feature")
-        elif type == 'edit':
+        elif dlg_type == 'edit':
             self.setWindowTitle("Edit Feature")
+            self.feature_qs = DeviceFeature.objects.get(pk=feature_id)
                 
         layout = QVBoxLayout()
         
@@ -575,7 +657,7 @@ class FeatureDialog(QDialog):
         self.type_list = QComboBox()
         for feature in FeatureList():
             self.type_list.addItem(feature[1], feature[0])
-        self.type_list.currentIndexChanged.connect(self.change_feature)
+        self.type_list.currentIndexChanged.connect(self.feature_combo_changed)
         if dlg_type=='edit':
             self.type_list.setEnabled(False)
         type_layout.addWidget(lbl_type)
@@ -585,6 +667,8 @@ class FeatureDialog(QDialog):
         name_layout = QHBoxLayout()
         lbl_name = QLabel("Name")
         self.txt_name = QLineEdit()
+        if dlg_type == 'edit':
+            self.txt_name.setText(self.feature_qs.name)
         name_layout.addWidget(lbl_name)
         name_layout.addWidget(self.txt_name)
         name_layout.addStretch()
@@ -603,22 +687,39 @@ class FeatureDialog(QDialog):
             btn_edit.clicked.connect(self.edit_feature)
             btn_layout.addWidget(btn_edit)
            
+        msg_layout = QHBoxLayout()
+        self.msg_label = QLabel('')
+        msg_layout.addWidget(self.msg_label)
+        msg_layout.addStretch()
 
         layout.addLayout(type_layout)
         layout.addLayout(name_layout)
         layout.addLayout(btn_layout)
+        layout.addLayout(msg_layout)
         layout.addStretch()
         self.setLayout(layout)
 
-    def change_feature(self):
+    def feature_combo_changed(self):
         if self.dlg_type=='add':
             self.txt_name.setText(self.type_list.currentText())
 
     def add_feature(self):
-        parent = self.parent()
-        feature = Feature()
-        #feature.add_feature(self.type_list.currentData(), self.txt_name.text(), self.devlib_id)
+        if self.txt_name.text() != "":
+            feature = Feature()
+            feature.add_feature(self.type_list.currentData(), self.txt_name.text(), self.devlib_id)
+            self.accept()
+        else:
+            self.msg_label.setText("Name cannot be empty")
+            self.msg_label.setStyleSheet("color: red")
+
+    def edit_feature(self):
+        if self.txt_name.text() != "":
+            self.feature_qs.name = self.txt_name.text()
+            self.feature_qs.save()
+            self.accept()
+        else:
+            self.msg_label.setText("Name cannot be empty")
+            self.msg_label.setStyleSheet("color: red")
         
-        self.accept()
 
        

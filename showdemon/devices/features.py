@@ -1,5 +1,6 @@
 from devices.colors import Colors
 from .constants import SystemType, Interfaces, ChannelType, FeatureList
+from devices.models import LibraryDevice, DeviceFeature, LibraryChannel
 
 
 class Feature():
@@ -61,35 +62,51 @@ class Feature():
         feature_channel_list.append(channel_list)
         return feature_channel_list
 
-    # def add_feature(self, feature, name, devicelib_id):
-    #     devicelib_qs = DeviceLibrary.objects.get(pk=devicelib_id)
-    #     feature_qs = DeviceFeature.objects.filter(device_library=devicelib_qs).order_by('-sort_order')
-    #     feature_type = FeatureList()
-    #     if feature == 'DMX_RGB':
-    #         dmx_rgb = DMX_RGB()
-    #         channel_list = dmx_rgb.get_channel_list()
-    #     elif feature == 'DMX_DIMM':
-    #         dmx_dimm = DMX_DIMM()
-    #         channel_list = dmx_dimm.get_channel_list()
+    def add_feature(self, feature, name, devicelib_id):
+        devicelib_qs = LibraryDevice.objects.get(pk=devicelib_id)
+        feature_qs = DeviceFeature.objects.filter(library_device=devicelib_qs).order_by('-sort_order')
+        
+        if feature == 'DMX_RGB':
+            dmx_rgb = DMX_RGB()
+            channel_list = dmx_rgb.get_channel_list()
+        elif feature == 'DMX_DIMM':
+            dmx_dimm = DMX_DIMM()
+            channel_list = dmx_dimm.get_channel_list()
             
-    #     if feature_qs:
-    #         feature_sort_order = feature_qs[0].sort_order + 1
-    #     else:
-    #         feature_sort_order = 1
+        if feature_qs:
+            feature_sort_order = feature_qs[0].sort_order + 1
+        else:
+            feature_sort_order = 1
 
-    #     new_feature = DeviceFeature()
-    #     new_feature.name = name
-    #     new_feature.feature_class = feature
-    #     new_feature.sort_order = feature_sort_order
-    #     new_feature.save()
-    #     print('Feature:', new_feature)
-    #     for channel in channel_list:
-    #         print('Channel:', channel)
-    #         new_channel = Channel()
-    #         new_channel.name = channel
-    #         new_channel.channel_type = channel
-    #         new_channel.device_feature = new_feature
-    #         new_channel.save()
+        new_feature = DeviceFeature()
+        new_feature.name = name
+        new_feature.feature_class = feature
+        new_feature.library_device = devicelib_qs
+        new_feature.sort_order = feature_sort_order
+        new_feature.save()
+        print('Feature:', new_feature)
+        channel_sort_order = 1
+        for channel in channel_list:
+            print('Channel:', channel)
+            new_channel = LibraryChannel()
+            new_channel.name = channel
+            new_channel.channel_type = channel
+            new_channel.device_feature = new_feature
+            new_channel.sort_order = channel_sort_order
+            new_channel.save()
+            channel_sort_order += 1
+
+    def delete_feature(self, feature_id):
+        feature_del_qs = DeviceFeature.objects.get(pk=feature_id)
+        lib_dev = feature_del_qs.library_device
+        feature_del_qs.delete()
+        feature_qs = DeviceFeature.objects.filter(library_device=lib_dev).order_by('sort_order')
+        sort_order = 1
+        for feature in feature_qs:
+            feature.sort_order = sort_order
+            feature.save()
+            sort_order += 1
+
 
             
 

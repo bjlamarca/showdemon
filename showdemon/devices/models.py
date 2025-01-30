@@ -61,7 +61,7 @@ class DeviceFeature(models.Model):
         max_length=10,
         choices=SystemType
     )
-    device_library = models.ForeignKey(
+    library_device = models.ForeignKey(
         to=LibraryDevice,
         on_delete=models.PROTECT
     )
@@ -76,7 +76,7 @@ class DeviceFeature(models.Model):
     def get_absolute_url(self):
         return reverse("devices:device_feature", kwargs={"pk": self.pk})
 
- # Child of a LibraryDevice and DeviceFeature, created by a feature class.  Parameter is JSON (Dict) for extra info, example 
+ # Child of a DeviceFeature, created by a feature class.  Parameter is JSON (Dict) for extra info, example 
  # would be min, max, scaled min, scaled max values for the int_value field
  # It is meant to be flexable, for features classes to use as needed. For DMX, this would a channel.   
 class LibraryChannel(models.Model):
@@ -85,19 +85,17 @@ class LibraryChannel(models.Model):
         max_length=100,
         choices=ChannelType
     ) 
-    library_device = models.ForeignKey(
-        to=LibraryDevice,
-        on_delete=models.PROTECT
-    )
     device_feature = models.ForeignKey(
         to=DeviceFeature,
-        on_delete=models.PROTECT
+        on_delete=models.CASCADE
     )
     int_min = models.IntegerField(
-        blank=True
+        blank=True,
+        null=True
     )
     int_max = models.IntegerField(
-        blank=True
+        blank=True,
+        null=True
     )
     str_value = models.CharField(
         max_length=(1000),
@@ -107,7 +105,7 @@ class LibraryChannel(models.Model):
         max_length=(1000),
         blank = True
     )
-
+    sort_order = models.IntegerField()
     def __str__(self):
         return str(self.name)
 
@@ -121,16 +119,19 @@ class ChannelParameter(models.Model):
     allow_fading = models.BooleanField(default=False)
     channel = models.ForeignKey(
         to=LibraryChannel,
-        on_delete=models.PROTECT
+        on_delete=models.CASCADE
     )
     int_value = models.IntegerField(
-        blank=True
+        blank=True,
+        null=True
     )
     int_min = models.IntegerField(
-        blank=True
+        blank=True,
+        null=True
     )
     int_max = models.IntegerField(
-        blank=True
+        blank=True,
+        null=True
     )
 
     def __str__(self):
@@ -175,6 +176,10 @@ class Channel(models.Model):
         to=LibraryChannel,
         on_delete=models.PROTECT
     )
+    system_channel = models.IntegerField(
+        blank=True,
+        null=True
+    )   
     channel_number = models.IntegerField()
     int_value = models.IntegerField(
         blank=True
