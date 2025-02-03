@@ -1,7 +1,7 @@
 import threading
 import sys, time
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, QThread, QObject, Signal, Slot
 from PySide6.QtWidgets import QApplication, QWidget, QMainWindow, QPushButton, QBoxLayout, QVBoxLayout, QLabel, QHBoxLayout, QComboBox, QCheckBox, QRadioButton, QTextEdit
 from PySide6.QtWidgets import   QSlider, QSpinBox, QProgressBar, QTableWidget, QTableWidgetItem, QLineEdit, QDockWidget, QSizePolicy, QSpacerItem, QLayout, QMenu 
 from PySide6.QtGui import  QAction
@@ -9,8 +9,10 @@ from PySide6.QtGui import  QAction
 from devices.interfaces import DMXInterface
 from .devicelib import DevLibWindow
 from .device import DeviceWindow
+from .control import MainControlWindow
 from devices.midi import Midi
-
+from showdemon.threads import ThreadTracker
+from showdemon.threads import ThreadTracker
 
         
 
@@ -33,27 +35,36 @@ class MainWindow(QMainWindow):
         file_menu.addAction(exit_action)
         menu_bar.addMenu(file_menu)
 
-        win_menu = QMenu('Window', self)
+        setup_menu = QMenu('Setup', self)
         
         dev_liv_action = QAction('Device Library', self)
         dev_liv_action.triggered.connect(self.show_devlib_window)
-        win_menu.addAction(dev_liv_action)
+        setup_menu.addAction(dev_liv_action)
         
         device_action = QAction('Device', self)
         device_action.triggered.connect(self.show_device_window)
-        win_menu.addAction(device_action)
+        setup_menu.addAction(device_action)
+        
+        
+        menu_bar.addMenu(setup_menu)
 
-        menu_bar.addMenu(win_menu)
+        control_menu = QMenu('Control', self)
+        channel_action = QAction('Control Window', self)
+        channel_action.triggered.connect(self.show_control_channel_window)
+        control_menu.addAction(channel_action)
+        menu_bar.addMenu(control_menu)
 
-
-        label_dmx_status = QLabel('DMX Status')
+        self.label_dmx_status = QLabel('DMX Status')
         button_start_dmx = QPushButton('Start')
+        button_start_dmx.clicked.connect(self.start_dmx)
         button_stop_dmx = QPushButton('Stop')
-        button_test_dmx = QPushButton('Test')
+        button_stop_dmx.clicked.connect(self.stop_dmx)
+        button_test_dmx = QPushButton('Start DMX Process')
+        button_test_dmx.clicked.connect(self.start_dmx_process)
         
         
         second_layout = QVBoxLayout()
-        second_layout.addWidget(label_dmx_status)
+        second_layout.addWidget(self.label_dmx_status)
         second_layout.addWidget(button_start_dmx)
         second_layout.addWidget(button_stop_dmx)
         second_layout.addWidget(button_test_dmx)
@@ -75,6 +86,18 @@ class MainWindow(QMainWindow):
         midi_layout.addWidget(btn_listen_midi)
         midi_layout.addWidget(btn_stop_midi)
         midi_layout.addStretch()
+
+        thread_layout = QVBoxLayout()
+        thread_label = QLabel("Threads")
+        btn_get_thread = QPushButton("Get Threads")
+        btn_get_thread.clicked.connect(self.thread_get)
+        thread_msg_label = QLabel("Message")
+        self.thread_msg = QLabel("No Message")
+        thread_layout.addWidget(thread_label)
+        thread_layout.addWidget(btn_get_thread)
+        thread_layout.addWidget(thread_msg_label)
+        thread_layout.addWidget(self.thread_msg)
+        thread_layout.addStretch()
         
 
        
@@ -82,13 +105,15 @@ class MainWindow(QMainWindow):
         h_layout.addLayout(second_layout)
         h_layout.addSpacing(30) 
         h_layout.addLayout(midi_layout)
+        h_layout.addSpacing(30)
+        h_layout.addLayout(thread_layout)
         h_layout.addStretch()
         
         main_layout.addLayout(h_layout)
         
         label = QLabel("Hello World")
        
-        self.show_device_window(True)
+       
           
         # Function to add widget with label
         def add_widget_with_label(layout, widget, label_text):
@@ -99,28 +124,6 @@ class MainWindow(QMainWindow):
             hbox.addWidget(widget)
             layout.addLayout(hbox)
 
-              
-
-        #self.show_devlib_window(True)
-        
-        # # QLabel
-        # self.label_dmx_status = QLabel('DMX Status')
-        # add_widget_with_label(main_layout, self.label_dmx_status, 'QLabel:')
-
-        # # QPushButton
-        # self.button_start_dmx = QPushButton('Start')
-        # #self.button_start_dmx.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        # self.button_start_dmx.clicked.connect(self.on_button_start_dmx_clicked)
-        # add_widget_with_label(main_layout, self.button_start_dmx, 'QPushButton:')
-
-        # # QPushButton
-        # self.button_stop_dmx = QPushButton('Stop')
-        # self.button_stop_dmx.clicked.connect(self.on_button_stop_dmx_clicked)
-        # add_widget_with_label(main_layout, self.button_stop_dmx, 'QPushButton:')
-
-        # self.button_test_dmx = QPushButton('Test')
-        # self.button_test_dmx.clicked.connect(self.on_button_test_dmx_clicked)
-        # add_widget_with_label(main_layout, self.button_test_dmx, 'QPushButton:')
     def start_midi(self):
         print("Start Midi")
         midi = Midi()
@@ -136,47 +139,63 @@ class MainWindow(QMainWindow):
         midi = Midi()
         midi.stop_listen()
 
+    def thread_get(self):
+        print("Get Threads")
+        tracker = ThreadTracker()
+        threads = tracker.get_all_thread_info()
+        self.thread_msg.setText(str(threads))
+
     
    
-    def on_button_start_dmx_clicked(self):
+    def start_dmx(self):
         dmx = DMXInterface()
         result = dmx.start_dmx()
         self.label_dmx_status.setText(result)
 
-    def on_button_stop_dmx_clicked(self):
+    def stop_dmx(self):
         dmx = DMXInterface()
         result = dmx.stop_dmx()
         self.label_dmx_status.setText(result)
 
-    def on_button_test_dmx_clicked(self):
+    def start_dmx_process(self):
         dmx = DMXInterface()
-        time.sleep(1)
-        print("Red")
-        dmx.update(5,255)
-        dmx.update(1,255)
-        dmx.update(2,0)
-        dmx.update(3,0)
+        dmx.start_process_lookup()
+        # time.sleep(1)
+        # print("Red")
+        # dmx.update(5,255)
+        # dmx.update(1,255)
+        # dmx.update(2,0)
+        # dmx.update(3,0)
         
-        time.sleep(1)
-        print("Green")
-        dmx.update(1,0)
-        dmx.update(2,255)
-        dmx.update(3,0)
+        # time.sleep(1)
+        # print("Green")
+        # dmx.update(1,0)
+        # dmx.update(2,255)
+        # dmx.update(3,0)
         
-        time.sleep(1)
-        print("Blue")
-        dmx.update(1,0)
-        dmx.update(2,0)
-        dmx.update(3,255)
+        # time.sleep(1)
+        # print("Blue")
+        # dmx.update(1,0)
+        # dmx.update(2,0)
+        # dmx.update(3,255)
 
     def show_devlib_window(self, checked):
-        self.dev_lib_win = DevLibWindow()
-        self.dev_lib_win.resize(QSize(600, 900))
-        self.dev_lib_win.show()
+        self.new_window = DevLibWindow()
+        self.new_window.resize(QSize(600, 900))
+        self.new_window.show()
+        
     def show_device_window(self, checked):
         self.device_win = DeviceWindow()
         self.device_win.resize(QSize(600, 900))
         self.device_win.show()
+
+    def show_control_channel_window(self, checked):
+        self.control_win = MainControlWindow()
+        self.control_win.resize(QSize(600, 600))
+        self.control_win.show()
+
+
+        
 
 def app_thread():
     app = QApplication(sys.argv)
@@ -187,9 +206,12 @@ def app_thread():
     
 
 def start_app():
-    process = threading.Thread(target=app_thread)
-    process.daemon = True
-    process.start()
+    thread_tracker = ThreadTracker()
+    thread_tracker.start_thread(app_thread, 'UI_MAIN')
+    
+    # process = threading.Thread(target=app_thread)
+    # process.daemon = True
+    # process.start()
 
 
     

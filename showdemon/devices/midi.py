@@ -1,5 +1,5 @@
 import mido
-import rtmidi
+#import rtmidi
 import threading
 
 #print(mido.get_input_names())

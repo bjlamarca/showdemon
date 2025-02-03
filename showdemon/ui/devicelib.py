@@ -1,21 +1,22 @@
 from PySide6.QtWidgets import (QWidget, QPushButton, QMessageBox, QVBoxLayout, QLabel, QHBoxLayout, QComboBox,
-    QTableWidget, QTableWidgetItem, QLineEdit, QTabWidget, QDialog, QDialogButtonBox, QAbstractItemView,)
+    QTableWidget, QTableWidgetItem, QLineEdit, QTabWidget, QDialog, QFrame, QAbstractItemView, QCheckBox, QMainWindow)
 
 from PySide6.QtCore import QSize
 
-from devices.models import Manufacture, LibraryDevice, DeviceFeature, LibraryChannel
+from devices.models import Manufacture, LibraryDevice, DeviceFeature, LibraryChannel, ChannelParameter
 from devices.constants import SystemType, Interfaces, FeatureList, ChannelType
 from devices.features import Feature
 from .utilities import get_icon_obj
 from pprint import pprint
 
-class DevLibWindow(QWidget):
+class DevLibWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Device Library")
-       
+        main_widget = QWidget()
+        self.setCentralWidget(main_widget)
 
-        self.layout = QVBoxLayout(self)
+        self.layout = QVBoxLayout(main_widget)
       
         self.tab_widget = QTabWidget()
         self.tab_manuf = QWidget()
@@ -142,11 +143,11 @@ class DevLibWindow(QWidget):
             manuf_id = int(self.manuf_table.item(self.manuf_table.currentRow(), 2).text())
             dlg = ManufDialog(self, 'edit', manuf_id)
             dlg.resize(400, 200)
-            if dlg.exec():
-                self.fill_manuf_table()
-            else:    
-                pass
-           
+            # if dlg.exec():
+            #     self.fill_manuf_table()
+            # else:    
+            #     pass
+            dlg.show()
     def show_del_manuf_dlg(self):
         if self.manuf_table.currentRow() != -1:
             del_diag = QMessageBox.warning(
@@ -273,17 +274,12 @@ class ManufDialog(QDialog):
         msg_layout.addWidget(self.msg_label)
         msg_layout.addStretch()
 
-        
-
-        
         layout.addLayout(n_layout)
         layout.addLayout(c_layout)
         layout.addLayout(b_layout)
         layout.addLayout(msg_layout)
         layout.addStretch()
 
-             
-       
         self.setLayout(layout)
 
     def add_manuf(self):
@@ -293,13 +289,12 @@ class ManufDialog(QDialog):
             new_manuf.name = name
             new_manuf.comments = self.txt_comm.text()
             new_manuf.save()
-            self.accept()
+            self.parent().fill_manuf_table()
+            self.close()
         else:
             self.msg_label.setText("Name cannot be empty")
             self.msg_label.setStyleSheet("color: red")
-            # self.msg_label.adjustSize()
-            # self.msg_label.show()
-            
+                   
 
     def edit_manuf(self):
         name = self.txt_name.text()
@@ -307,12 +302,12 @@ class ManufDialog(QDialog):
             self.manuf_qs.name = name
             self.manuf_qs.comments = self.txt_comm.text()
             self.manuf_qs.save()
-            self.accept()
+            self.parent().fill_manuf_table()
+            self.close()
         else:
             self.msg_label.setText("Name cannot be empty")
             self.msg_label.setStyleSheet("color: red")
-            # self.msg_label.adjustSize()
-            # self.msg_label.show()
+         
 
 class DeviceAddEditDialog(QDialog):
     def __init__(self, parent=None, dlg_type=None, device_id=None):
@@ -407,7 +402,6 @@ class DeviceAddEditDialog(QDialog):
             
             name = self.txt_name.text()
             if name != "":
-                print('Add Device', self.manuf_list.currentData(), self.system_list.currentData())
                 manuf_qs = Manufacture.objects.get(pk=int(self.manuf_list.currentData()))
                 new_device = LibraryDevice()
                 new_device.name = name
@@ -487,14 +481,6 @@ class DeviceEditFeatureDialog(QDialog):
         des_layout.addWidget(lbl_des)
         des_layout.addWidget(lbl_des_text)
         des_layout.addStretch()
-
-        
-        
-        
-        
-        
-        
-
         
         feature_layout = QHBoxLayout()
         lbl_feature = QLabel("Features")
@@ -533,6 +519,13 @@ class DeviceEditFeatureDialog(QDialog):
         feature_table_label_layout.addWidget(lbl_feature_table)
         feature_table_label_layout.addStretch()
 
+        channel_btn_layout = QHBoxLayout()
+        btn_edit_feature = QPushButton("Edit")
+        btn_edit_feature.setIcon(get_icon_obj('pencil'))
+        btn_edit_feature.clicked.connect(self.edit_channel)
+        channel_btn_layout.addWidget(btn_edit_feature)
+        channel_btn_layout.addStretch()
+
         feature_table_layout = QVBoxLayout()
         self.feature_table = QTableWidget()
         feature_table_layout.addWidget(self.feature_table)
@@ -550,10 +543,7 @@ class DeviceEditFeatureDialog(QDialog):
         channel_table_layout.addWidget(self.channel_table)
         channel_table_layout.addStretch()
 
-
-
         self.fill_feature_tables()
-
         
         layout.addLayout(dev_title_layout)
         layout.addLayout(n_layout)
@@ -566,9 +556,9 @@ class DeviceEditFeatureDialog(QDialog):
         layout.addLayout(feature_table_label_layout)
         layout.addLayout(feature_table_layout)
         layout.addLayout(channel_table_label_layout)
+        layout.addLayout(channel_btn_layout)
         layout.addLayout(channel_table_layout)
         layout.addStretch()
-
 
         self.setLayout(layout)
 
@@ -579,15 +569,12 @@ class DeviceEditFeatureDialog(QDialog):
         feature_qs = DeviceFeature.objects.filter(library_device=libdev_qs).order_by('sort_order')
         feature_count = feature_qs.count()
     
-    
-        #print('Fill Feature Table', self.feature_channel_list)
         self.feature_table.clear()
         self.feature_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.feature_table.setSelectionMode
         self.feature_table.setColumnCount(4)
         self.feature_table.setHorizontalHeaderLabels(['Name', 'Type', 'Order', 'ID'])
         self.feature_table.setRowCount(feature_count)
-        self.feature_table.resize(100, 200)
         i = 0
         for feature in feature_qs:
             self.feature_table.setItem(i, 0, QTableWidgetItem(feature.name))
@@ -599,7 +586,7 @@ class DeviceEditFeatureDialog(QDialog):
         self.channel_table.clear()
         self.channel_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.channel_table.setSelectionMode
-        self.channel_table.setColumnCount(4)
+        self.channel_table.setColumnCount(5)
         self.channel_table.setHorizontalHeaderLabels(['Name', 'Feature', 'Type', 'Order', 'ID'])
 
         channel_count  = 0
@@ -619,9 +606,6 @@ class DeviceEditFeatureDialog(QDialog):
                 self.channel_table.setItem(i, 4, QTableWidgetItem(str(channel.pk)))
                 i += 1    
             
-       
-        
-   
     def add_feature(self):
         dlg = FeatureDialog(self, dlg_type='add', devlib_id=self.device_id)
         dlg.resize(400, 200)
@@ -661,6 +645,14 @@ class DeviceEditFeatureDialog(QDialog):
         if self.feature_table.currentRow() != -1:
             feature = Feature()
             if feature.move_feature(int(self.feature_table.item(self.feature_table.currentRow(), 3).text()), 'down'):
+                self.fill_feature_tables()
+
+    def edit_channel(self):
+        if self.channel_table.currentRow() != -1:
+            channel_id = int(self.channel_table.item(self.channel_table.currentRow(), 4).text())
+            dlg = ChannelDialog(self, channel_id)
+            dlg.resize(400, 200)
+            if dlg.exec():
                 self.fill_feature_tables()
 
 class FeatureDialog(QDialog):
@@ -744,6 +736,328 @@ class FeatureDialog(QDialog):
         else:
             self.msg_label.setText("Name cannot be empty")
             self.msg_label.setStyleSheet("color: red")
+
+class ChannelDialog(QDialog):
+    def __init__(self, parent=None, channel_id=None):
+        super().__init__(parent)
+             
+        self.setWindowTitle("Edit Channel")
+        self.channel_qs = LibraryChannel.objects.get(pk=channel_id)
+        self.has_parameters = False
+                
+        
+        self.top_frame = QFrame()
+        top_layout = QVBoxLayout()
+
+        type_layout = QHBoxLayout()
+        lbl_type = QLabel("Type:")
+        lbl_type.setMinimumWidth(100)
+        chnl_type = ChannelType()
+        lbl_type_display = QLabel(chnl_type.get_display(self.channel_qs.channel_type))
+        type_layout.addWidget(lbl_type)
+        type_layout.addWidget(lbl_type_display)
+        type_layout.addStretch()
+
+        name_layout = QHBoxLayout()
+        lbl_name = QLabel("Name")
+        lbl_name.setMinimumWidth(100)
+        self.txt_name = QLineEdit()
+        self.txt_name.setText(self.channel_qs.name)
+        name_layout.addWidget(lbl_name)
+        name_layout.addWidget(self.txt_name)
+        name_layout.addStretch()
+
+        btn_layout = QHBoxLayout()
+        btn_edit = QPushButton("Save")
+        btn_edit.clicked.connect(self.edit_channel)
+        btn_layout.addWidget(btn_edit)
+        btn_layout.addStretch()
+
         
 
+        top_layout.addLayout(type_layout)
+        top_layout.addLayout(name_layout)
+        top_layout.addLayout(btn_layout)
+        top_layout.addStretch()
+        self.top_frame.setLayout(top_layout)
+        
+        self.parm_frame = QFrame()
+        parm_layout = QVBoxLayout()
+
+        parm_btn_layout = QHBoxLayout()
+        btn_add_parm = QPushButton("Add")
+        btn_add_parm.setIcon(get_icon_obj('plus-circle'))
+        btn_add_parm.clicked.connect(self.add_parm)
+        btn_edit_parm = QPushButton("Edit")
+        btn_edit_parm.setIcon(get_icon_obj('pencil'))
+        btn_edit_parm.clicked.connect(self.edit_parm)
+        btn_del_parm = QPushButton("Delete")
+        btn_del_parm.setIcon(get_icon_obj('cross-circle'))
+        btn_del_parm.clicked.connect(self.del_parm)
+        parm_btn_layout.addWidget(btn_add_parm)
+        parm_btn_layout.addWidget(btn_edit_parm) 
+        parm_btn_layout.addWidget(btn_del_parm)
+        parm_btn_layout.addStretch()   
+        
+        
+        parm_table_layout = QHBoxLayout()
+        self.parm_table = QTableWidget()
+        self.parm_table.setMinimumWidth(500)
+        parm_table_layout.addWidget(self.parm_table)
+        parm_table_layout.addStretch()
+
+        parm_layout.addLayout(parm_btn_layout)
+        parm_layout.addLayout(parm_table_layout)
+        parm_layout.addStretch()
+        self.parm_frame.setLayout(parm_layout)
+
+        self.bottom_frame = QFrame()
+        bottom_layout = QVBoxLayout()
+
+        
+           
+        msg_layout = QHBoxLayout()
+        self.msg_label = QLabel('')
+        msg_layout.addWidget(self.msg_label)
+        msg_layout.addStretch()
+
+        bottom_layout.addLayout(msg_layout)
+        bottom_layout.addStretch()
+        self.bottom_frame.setLayout(bottom_layout)
+
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.top_frame)
+        layout.addWidget(self.parm_frame)
+        layout.addWidget(self.bottom_frame)
+        self.setLayout(layout)
+
+        self.fill_parm_table()
+
+    def fill_parm_table(self):
+        feature = Feature()
+        feature_cls = feature.get_feature_class(self.channel_qs.device_feature.feature_class)
+        if feature_cls.has_parameters():
+            self.has_parameters = True
+            self.parm_frame.show()
+            
+            feature_fields = feature_cls.get_parameter_fields()
+            self.parm_table.clear()
+            self.parm_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+            self.parm_table.setSelectionMode
+            self.parm_table.setColumnCount(len(feature_fields)+2)
+            header_list = []
+            header_list.append('Name')
+            for field in feature_fields:
+                header_list.append(feature.get_parameter_field_display(field))
+            header_list.append('ID')
+            self.parm_table.setHorizontalHeaderLabels(header_list)
+            chnl_parms = ChannelParameter.objects.filter(library_channel=self.channel_qs)
+            self.parm_table.setRowCount(chnl_parms.count())
+            row = 0
+            for parm in chnl_parms:
+                self.parm_table.setItem(row, 0, QTableWidgetItem(parm.name))
+                column = 1
+                for field in feature_fields:
+                    self.parm_table.setItem(row, column, QTableWidgetItem(str(getattr(parm, field))))
+                    column += 1
+                self.parm_table.setItem(row, column, QTableWidgetItem(str(parm.pk)))
+                row += 1      
+                
+
+        else:
+            self.has_parameters = False
+            self.parm_frame.hide()
+            
+
+    def edit_channel(self):
+        if self.txt_name.text() != "":
+            self.channel_qs.name = self.txt_name.text()
+            self.channel_qs.save()
+            self.accept()
+        else:
+            self.msg_label.setText("Name cannot be empty")
+            self.msg_label.setStyleSheet("color: red")
+        
+    def add_parm(self):
+        dlg_parm = ParmWindows(self, self.channel_qs, 'add')
+        dlg_parm.resize(400, 600)
+        if dlg_parm.exec():
+            self.fill_parm_table()
+        else:
+            self.fill_parm_table()
+
+    def edit_parm(self):
+        if self.parm_table.currentRow() != -1:
+            parm_id = int(self.parm_table.item(self.parm_table.currentRow(), 4).text())
+            dlg_parm = ParmWindows(self, self.channel_qs, 'edit', parm_id)
+            dlg_parm.resize(400, 600)
+            if dlg_parm.exec():
+                self.fill_parm_table()
+            else:
+                self.fill_parm_table    
+
+    def del_parm(self):
+        if self.parm_table.currentRow() != -1:
+            del_diag = QMessageBox.warning(
+                self,
+                'Delete Parameter',
+                'Are you sure you want to delete this parameter?',
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if del_diag == QMessageBox.Yes:
+                try:
+                    parm_id = int(self.parm_table.item(self.parm_table.currentRow(), 4).text())
+                    parm_qs = ChannelParameter.objects.get(pk=parm_id)
+                    parm_qs.delete()
+                except Exception as e:
+                    if type(e).__name__ == 'ProtectedError':
+                        self.msg_label.setText("Parameter is in use and cannot be deleted")
+                        self.msg_label.setStyleSheet("color: red")
+                else:
+                    self.fill_parm_table()
        
+
+class ParmWindows(QDialog):
+    def __init__(self, parent=None, channel_qs=None, dlg_type=None, channel_id=None):
+        super().__init__(parent)
+        self.channel_qs = channel_qs
+        layout = QVBoxLayout()
+
+        if dlg_type == 'add':
+            self.setWindowTitle("Add Parameter")
+        elif dlg_type == 'edit':
+            self.setWindowTitle("Edit Parameter")
+            self.parm_qs = ChannelParameter.objects.get(pk=channel_id)
+
+        name_layout = QHBoxLayout()
+        lbl_name = QLabel("Name")
+        lbl_name.setMinimumWidth(100)
+        self.txt_name = QLineEdit()
+        if dlg_type == 'edit':
+            self.txt_name.setText(self.parm_qs.name)
+        name_layout.addWidget(lbl_name)
+        name_layout.addWidget(self.txt_name)
+        name_layout.addStretch()
+
+        allow_fading_layout = QHBoxLayout()
+        lbl_fading = QLabel("Allow Fading")
+        lbl_fading.setMinimumWidth(100)
+        self.chk_fading = QCheckBox()
+        if dlg_type == 'edit':
+            self.chk_fading.setChecked(self.parm_qs.allow_fading)
+        allow_fading_layout.addWidget(lbl_fading)
+        allow_fading_layout.addWidget(self.chk_fading)
+        allow_fading_layout.addStretch()
+
+        min_layout = QHBoxLayout()
+        lbl_min = QLabel("Min")
+        lbl_min.setMinimumWidth(100)
+        self.txt_min = QLineEdit()
+        if dlg_type == 'edit':
+            self.txt_min.setText(str(self.parm_qs.int_min))
+        min_layout.addWidget(lbl_min)
+        min_layout.addWidget(self.txt_min)
+        min_layout.addStretch()
+
+        max_layout = QHBoxLayout()
+        lbl_max = QLabel("Max")
+        lbl_max.setMinimumWidth(100)
+        self.txt_max = QLineEdit()
+        if dlg_type == 'edit':
+            self.txt_max.setText(str(self.parm_qs.int_max))
+        max_layout.addWidget(lbl_max)
+        max_layout.addWidget(self.txt_max)
+        max_layout.addStretch()
+
+        value_layout = QHBoxLayout()
+        lbl_value = QLabel("Value")
+        lbl_value.setMinimumWidth(100)
+        self.txt_value = QLineEdit()
+        if dlg_type == 'edit':
+            self.txt_value.setText(str(self.parm_qs.int_value))
+        value_layout.addWidget(lbl_value)
+        value_layout.addWidget(self.txt_value)
+
+        str_layout = QHBoxLayout()
+        lbl_str = QLabel("String Value")
+        lbl_str.setMinimumWidth(100)
+        self.txt_str = QLineEdit()
+        if dlg_type == 'edit':
+            self.txt_str.setText(self.parm_qs.str_value)
+        str_layout.addWidget(lbl_str)
+        str_layout.addWidget(self.txt_str)
+
+        btn_layout = QHBoxLayout()
+        btn_cancel = QPushButton("Cancel")
+        btn_cancel.clicked.connect(self.reject)
+        btn_layout.addWidget(btn_cancel)
+        if dlg_type == 'add':
+            btn_add = QPushButton("Add")
+            btn_add.clicked.connect(self.add_parm)
+            btn_layout.addWidget(btn_add)
+        elif dlg_type == 'edit':
+            btn_edit = QPushButton("Save")
+            btn_edit.clicked.connect(self.edit_parm)
+            btn_layout.addWidget(btn_edit)
+        btn_layout.addStretch()
+
+
+        layout.addLayout(name_layout)
+        feature = Feature()
+        self.feature_cls = feature.get_feature_class(self.channel_qs.device_feature.feature_class)
+        feature_fields = self.feature_cls.get_parameter_fields()
+        if 'int_min' in feature_fields:
+            layout.addLayout(min_layout)
+        if 'int_max' in feature_fields:
+            layout.addLayout(max_layout)
+        if 'str_value' in feature_fields:
+            layout.addLayout(value_layout)
+        if 'allow_fading' in feature_fields:
+            layout.addLayout(allow_fading_layout)
+        if 'int_value' in feature_fields:
+            layout.addLayout(value_layout)
+        layout.addLayout(btn_layout) 
+
+        msg_layout = QHBoxLayout()
+        self.msg_label = QLabel('')
+        msg_layout.addWidget(self.msg_label)
+        msg_layout.addStretch()
+        layout.addLayout(msg_layout)
+
+        self.setLayout(layout)
+
+    def add_parm(self):
+        value_dict = {}
+        value_dict['name'] = self.txt_name.text()
+        value_dict['int_min'] = self.txt_min.text()
+        value_dict['int_max'] = self.txt_max.text()
+        value_dict['str_value'] = self.txt_value.text()
+        value_dict['allow_fading'] = self.chk_fading.isChecked()
+        value_dict['int_value'] = self.txt_value.text()
+        result = self.feature_cls.add_parameter(self.channel_qs.pk, value_dict)
+        if result['result']:
+            self.msg_label.setText(result['message'])
+            self.accept()
+        else:
+            self.msg_label.setText(result['message'])
+            self.msg_label.setStyleSheet('color: red')
+
+
+
+    def edit_parm(self):
+        value_dict = {}
+        value_dict['name'] = self.txt_name.text()
+        value_dict['int_min'] = self.txt_min.text()
+        value_dict['int_max'] = self.txt_max.text()
+        value_dict['str_value'] = self.txt_value.text()
+        value_dict['allow_fading'] = self.chk_fading.isChecked()
+        value_dict['int_value'] = self.txt_value.text()
+        result = self.feature_cls.edit_parameter(self.parm_qs.pk, value_dict)
+        if result['result']:
+            self.msg_label.setText(result['message'])
+            self.accept()
+        else:
+            self.msg_label.setText(result['message'])
+            self.msg_label.setStyleSheet('color: red')
+

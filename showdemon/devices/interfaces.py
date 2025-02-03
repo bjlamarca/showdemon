@@ -2,6 +2,10 @@ import time
 import random
 import threading, multiprocessing
 from pyftdi.ftdi import Ftdi
+from showdemon.threads import ThreadTracker
+from devices.models import Channel
+
+import uuid
 
 
 
@@ -11,15 +15,28 @@ class DMXInterface:
     url='ftdi://ftdi:232:AQ01UKYW/1'
     is_connected = False
     is_running = False
+    send_to_interface = True
     port = None
+    process_data_list = []
+    process_data_list_id = 0
     data = None
     run_loop = False
+
+
+    
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         
         return cls._instance
+
+    def __init__(cls):
+        cls.uuid = uuid.uuid4()
+        #thread_tracker = ThreadTracker()
+        #thread_tracker.start_thread(cls.loop_process_updates, 'DMX_PROCESS_UPDATES')
+        
+
 
 
     def connect(cls):
@@ -57,10 +74,29 @@ class DMXInterface:
         print("Close DMX")
         if cls.port:
             cls.port.close()
+    
+    def set_channel_value(cls, channel, value):
+        if cls.is_running and cls.send_to_interface:
+            cls.data[channel] = value
+            print("Set Channel Value", channel, value)
+        cls.process_data_list_id += 1
+        cls.process_data_list.append([cls.process_data_list_id, channel, value])
+                
+    #a thread, after updating the interface, update the db, and send a signal 
+    def loop_process_updates(cls):
+        while True:
+            process_list = cls.process_data_list
+            for process in process_list:
+                channel_qs = Channel.objects.filter(library_channel__device_feature__library_device__system='DMX', system_channel=process[1])
+                if channel_qs:
+                    channel = channel_qs[0]
+                    channel.int_value = process[2]
+                    channel.save()
+                cls.process_data_list.remove(process)
+                
 
-    def update(cls, channel, value):
-        cls.data[channel] = value
-        
+
+
     def loop_dmx(cls):
         try:
             while cls.run_loop:
@@ -79,18 +115,21 @@ class DMXInterface:
         
 
     def start_dmx(cls):
+
+        print("Start DMX")
         if not cls.is_connected:
             if cls.connect():
-                return 'DMX Connected'
+                pass
+                #return 'DMX Connected'
             else:
                 return 'DMX Connection Failed'
             
         if not cls.is_running:
             cls.run_loop = True    
             print("Start DMX")
-            process = threading.Thread(target=cls.loop_dmx)
-            process.daemon = True
-            process.start()
+            thread_tracker = ThreadTracker()
+            thread_tracker.start_thread(cls.loop_dmx, 'DMX_INTERFACE')
+            
             cls.is_running = True
             return 'DMX Started'
         else:
@@ -104,6 +143,11 @@ class DMXInterface:
             return 'DMX Stopped'
         else:
             return 'DMX Already Stopped'
+        
+
+    def start_process_lookup(cls):
+        thread_tracker = ThreadTracker()
+        thread_tracker.start_thread(cls.loop_process_updates, 'DMX_PROCESS_UPDATES')
         
 
 

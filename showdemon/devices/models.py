@@ -117,7 +117,7 @@ class LibraryChannel(models.Model):
 class ChannelParameter(models.Model):
     name = models.CharField(max_length=150)
     allow_fading = models.BooleanField(default=False)
-    channel = models.ForeignKey(
+    library_channel = models.ForeignKey(
         to=LibraryChannel,
         on_delete=models.CASCADE
     )
@@ -131,6 +131,11 @@ class ChannelParameter(models.Model):
     )
     int_max = models.IntegerField(
         blank=True,
+        null=True
+    )
+    str_value = models.CharField(
+        max_length=(5000),
+        blank = True,
         null=True
     )
 
@@ -170,7 +175,7 @@ class Device(models.Model):
 class Channel(models.Model):
     device = models.ForeignKey(
         to=Device,
-        on_delete=models.PROTECT
+        on_delete=models.CASCADE
     )
     library_channel = models.ForeignKey(
         to=LibraryChannel,
@@ -182,15 +187,18 @@ class Channel(models.Model):
     )   
     channel_number = models.IntegerField()
     int_value = models.IntegerField(
-        blank=True
+        blank=True,
+        null=True
     )
     str_value = models.CharField(
         max_length=(1000),
-        blank = True
+        blank = True,
+        null=True
     )
     parameter = models.CharField(
         max_length=(1000),
-        blank = True
+        blank = True,
+        null=True
     )
 
     def __str__(self):
