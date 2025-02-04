@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (QWidget, QPushButton, QMessageBox, QVBoxLayout, Q
 
 from PySide6.QtCore import Qt
 from devices.interfaces import DMXInterface
-from devices.models import Device, Channel, ChannelParameter, DeviceFeature, LibraryChannel
+from devices.models import Device, Channel, ChannelParameter, DeviceFeature, LibraryChannel, LibraryDevice
 
 from devices.signals import dmx_signal
 import uuid
@@ -77,23 +77,20 @@ class DMXChannelWindow(QMainWindow):
         super().__init__(parent)
         self.device_id = device_id
         self.channel_list = []
+        self.device = Device.objects.get(pk=self.device_id)
+        self.dmx = DMXInterface()
+        self.uuid = uuid.uuid4()
 
         dmx_signal.connect(self.receive_dmx_signal)
         self.setWindowTitle("Control")
-        self.dmx = DMXInterface()
-        self.uuid = uuid.uuid4()
         
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         self.layout = QVBoxLayout(main_widget)
-
-
-       
+        
         self.slide_ctl_frame = QFrame()
         self.slide_ctl_frame.setMinimumHeight(300)
 
-        self.device = Device.objects.get(pk=self.device_id)
-            
         slide_v_layout = QVBoxLayout()
         
         dev_name_layout = QHBoxLayout()
@@ -160,7 +157,7 @@ class DMXFeatureWindow(QMainWindow):
     def __init__(self, parent=None, device_id=None):
         super().__init__(parent)
         self.device_id = device_id
-        self.device = Device.objects.get(pk=device_id)
+        self.device_record = Device.objects.get(pk=device_id)
        
         
         self.setWindowTitle("Feature Control")
@@ -170,57 +167,62 @@ class DMXFeatureWindow(QMainWindow):
         
         horz_layout = QHBoxLayout()
 
-        self.frame1 = QFrame()
-        self.frame1.setMinimumHeight(300)
-
-        layout1_layout = QVBoxLayout()
-        layout1_lbl = QLabel('Features')
-        layout1_layout.addWidget(layout1_lbl)
-        layout1_layout.addWidget(DMXSelectorWidget(device_id=self.device_id, feature_id=6))
-        self.frame1.setLayout(layout1_layout)
-        horz_layout.addWidget(self.frame1)
+        feat_v_layout = QVBoxLayout()
         
-        self.frame2 = QFrame()
-        self.frame2.setMinimumHeight(300)
-
-        layout2_layout = QVBoxLayout()
-        layout2_lbl = QLabel('Features')
-        layout2_layout.addWidget(layout2_lbl)
-        layout2_layout.addWidget(DMXDimmerWidget(device_id=self.device_id, feature_id=4))
-        self.frame2.setLayout(layout2_layout)
-        horz_layout.addWidget(self.frame2)
+        device_layout = QHBoxLayout()
+        device_lbl = QLabel('Device')
+        device_lbl.setMinimumWidth(100)
+        device_val_lbl = QLabel(self.device_record.name)
+        device_layout.addWidget(device_lbl)
+        device_layout.addWidget(device_val_lbl)
+        device_layout.addStretch()
+        feat_v_layout.addLayout(device_layout)
         
-
-
+        self.feat_h_layout = QHBoxLayout()
+        
+        self.create_feature_widgets()
+        
+        feat_v_layout.addLayout(self.feat_h_layout)
+        self.feat_h_layout.addStretch()
+        
+        horz_layout.addLayout(feat_v_layout)
+        horz_layout.addStretch()
         self.layout.addLayout(horz_layout)
 
         
-                 
+    def create_feature_widgets(self):
+        libdev_record = self.device_record.device_library
+        feature_qs = DeviceFeature.objects.filter(library_device=libdev_record).order_by('sort_order')
+
+        for feature in feature_qs:
+            if feature.feature_class == 'DMX_DIMM':
+                self.feat_h_layout.addWidget(DMXDimmerWidget(device_id=self.device_id, feature_id=feature.pk))
+            elif feature.feature_class == 'DMX_SELECT':
+                self.feat_h_layout.addWidget(DMXSelectorWidget(device_id=self.device_id, feature_id=feature.pk))           
 
 class DMXSelectorWidget(QWidget):
     def __init__(self, device_id, feature_id):
         super().__init__()
         self.device_id = device_id
         self.feature_id = feature_id
-        device_qs = Device.objects.get(pk=device_id)
-        feature_qs = DeviceFeature.objects.get(pk=feature_id)
-        lib_channel_qs = LibraryChannel.objects.filter(device_feature=feature_qs)
+        device_record = Device.objects.get(pk=device_id)
+        feature_record = DeviceFeature.objects.get(pk=feature_id)
+        lib_channel_qs = LibraryChannel.objects.filter(device_feature=feature_record)
         
-        lib_channel = lib_channel_qs[0]
+        lib_channel = lib_channel_qs[0] #should only be one
         self.parm_qs = ChannelParameter.objects.filter(library_channel=lib_channel).order_by('int_min')
-        channel_qs = Channel.objects.filter(library_channel=lib_channel, device=device_qs)
-        self.channel = channel_qs[0]
+        channel_qs = Channel.objects.filter(library_channel=lib_channel, device=device_record)
+        self.channel = channel_qs[0] #should only be one
         self.current_value = self.channel.int_value
         
-
-                
         dmx_signal.connect(self.receive_dmx_signal)
         self.dmx = DMXInterface()
         self.uuid = uuid.uuid4()
+        
         self.layout = QVBoxLayout()
         horz_layout = QHBoxLayout() 
         title_layout = QHBoxLayout()
-        title_feat_txt_lbl = QLabel(feature_qs.name)
+        title_feat_txt_lbl = QLabel(feature_record.name)
         title_feat_txt_lbl.setStyleSheet('font-weight: bold;')
         title_layout.addWidget(title_feat_txt_lbl)
         title_layout.addStretch()
@@ -293,24 +295,22 @@ class DMXDimmerWidget(QWidget):
         super().__init__()
         self.device_id = device_id
         self.feature_id = feature_id
-        device_qs = Device.objects.get(pk=device_id)
-        feature_qs = DeviceFeature.objects.get(pk=feature_id)
-        lib_channel_qs = LibraryChannel.objects.filter(device_feature=feature_qs)
-        lib_channel = lib_channel_qs[0]
-        channel_qs = Channel.objects.filter(library_channel=lib_channel, device=device_qs)
-        self.channel = channel_qs[0]
+        device_record = Device.objects.get(pk=device_id)
+        feature_record = DeviceFeature.objects.get(pk=feature_id)
+        lib_channel_qs = LibraryChannel.objects.filter(device_feature=feature_record)
+        lib_channel = lib_channel_qs[0] #should only be one
+        channel_qs = Channel.objects.filter(library_channel=lib_channel, device=device_record)
+        self.channel = channel_qs[0] #should only be one
         self.current_value = self.channel.int_value
-
-        
-
 
         dmx_signal.connect(self.receive_dmx_signal)
         self.dmx = DMXInterface()
         self.uuid = uuid.uuid4()
+        
         self.layout = QVBoxLayout()
         horz_layout = QHBoxLayout() 
         title_layout = QHBoxLayout()
-        title_feat_txt_lbl = QLabel(feature_qs.name)
+        title_feat_txt_lbl = QLabel(feature_record.name)
         title_feat_txt_lbl.setStyleSheet('font-weight: bold;')
         title_layout.addWidget(title_feat_txt_lbl)
         title_layout.addStretch()
