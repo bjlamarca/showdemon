@@ -767,6 +767,17 @@ class ChannelDialog(QDialog):
         name_layout.addWidget(self.txt_name)
         name_layout.addStretch()
 
+        startup_layout = QHBoxLayout()
+        lbl_startup = QLabel("Startup Value")
+        lbl_startup.setMinimumWidth(100)
+        self.txt_startup = QLineEdit()
+        self.txt_startup.setFixedWidth(30)
+        self.txt_startup.setText(str(self.channel_qs.startup_int))
+        startup_layout.addWidget(lbl_startup)
+        startup_layout.addWidget(self.txt_startup)
+        startup_layout.addStretch()
+
+
         btn_layout = QHBoxLayout()
         btn_edit = QPushButton("Save")
         btn_edit.clicked.connect(self.edit_channel)
@@ -777,6 +788,7 @@ class ChannelDialog(QDialog):
 
         top_layout.addLayout(type_layout)
         top_layout.addLayout(name_layout)
+        top_layout.addLayout(startup_layout)
         top_layout.addLayout(btn_layout)
         top_layout.addStretch()
         self.top_frame.setLayout(top_layout)
@@ -871,13 +883,27 @@ class ChannelDialog(QDialog):
             
 
     def edit_channel(self):
+        
+        save_record = False
+        
         if self.txt_name.text() != "":
-            self.channel_qs.name = self.txt_name.text()
-            self.channel_qs.save()
-            self.accept()
+            try:
+                statup_val = int(self.txt_startup.text())
+            except:
+                    self.msg_label.setText("Startup value must be an integer")
+                    self.msg_label.setStyleSheet("color: red")
+            else:
+                save_record = True
         else:
             self.msg_label.setText("Name cannot be empty")
             self.msg_label.setStyleSheet("color: red")
+
+        if save_record == True:
+            self.channel_qs.name = self.txt_name.text()
+            self.channel_qs.startup_int = statup_val
+            self.channel_qs.save()
+            self.accept()
+
         
     def add_parm(self):
         dlg_parm = ParmWindows(self, self.channel_qs, 'add')

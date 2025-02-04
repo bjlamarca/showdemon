@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import (QWidget, QPushButton, QMessageBox, QVBoxLayout, QLabel, QHBoxLayout, QComboBox, QSlider,
+from PySide6.QtWidgets import (QWidget, QPushButton, QMessageBox, QVBoxLayout, QLabel, QHBoxLayout, QComboBox, QSlider, QGroupBox,
     QTableWidget, QTableWidgetItem, QLineEdit, QTabWidget, QDialog, QFrame, QAbstractItemView, QCheckBox, QMainWindow)
 
 from PySide6.QtCore import Qt
@@ -9,6 +9,7 @@ from devices.signals import dmx_signal
 import uuid
 from django.dispatch import Signal, receiver
 from static.style import resources_rc
+
 
 @receiver(dmx_signal)
 def handle_device_signal(sender, **kwargs):
@@ -160,7 +161,7 @@ class DMXFeatureWindow(QMainWindow):
         self.device_record = Device.objects.get(pk=device_id)
        
         
-        self.setWindowTitle("Feature Control")
+        self.setWindowTitle('Feature Control')
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         self.layout = QVBoxLayout(main_widget)
@@ -170,10 +171,11 @@ class DMXFeatureWindow(QMainWindow):
         feat_v_layout = QVBoxLayout()
         
         device_layout = QHBoxLayout()
-        device_lbl = QLabel('Device')
-        device_lbl.setMinimumWidth(100)
+        # device_lbl = QLabel('Device')
+        # device_lbl.setMinimumWidth(100)
         device_val_lbl = QLabel(self.device_record.name)
-        device_layout.addWidget(device_lbl)
+        device_val_lbl.setStyleSheet('font-weight: bold; font-size: 16px;')
+        #device_layout.addWidget(device_lbl)
         device_layout.addWidget(device_val_lbl)
         device_layout.addStretch()
         feat_v_layout.addLayout(device_layout)
@@ -200,7 +202,7 @@ class DMXFeatureWindow(QMainWindow):
             elif feature.feature_class == 'DMX_SELECT':
                 self.feat_h_layout.addWidget(DMXSelectorWidget(device_id=self.device_id, feature_id=feature.pk))           
 
-class DMXSelectorWidget(QWidget):
+class DMXSelectorWidget(QGroupBox):
     def __init__(self, device_id, feature_id):
         super().__init__()
         self.device_id = device_id
@@ -219,16 +221,11 @@ class DMXSelectorWidget(QWidget):
         self.dmx = DMXInterface()
         self.uuid = uuid.uuid4()
         
-        self.layout = QVBoxLayout()
+        main_layout = QVBoxLayout()
         horz_layout = QHBoxLayout() 
-        title_layout = QHBoxLayout()
-        title_feat_txt_lbl = QLabel(feature_record.name)
-        title_feat_txt_lbl.setStyleSheet('font-weight: bold;')
-        title_layout.addWidget(title_feat_txt_lbl)
-        title_layout.addStretch()
-        self.layout.addLayout(title_layout)
-
-
+        self.setTitle(feature_record.name)
+        
+        
         ctrl_layout = QVBoxLayout()
         self.feat_combo = QComboBox()
         for parm in self.parm_qs:
@@ -236,18 +233,19 @@ class DMXSelectorWidget(QWidget):
         self.feat_combo.currentIndexChanged.connect(self.combo_changed)
         ctrl_layout.addWidget(self.feat_combo)
         self.feat_slider = QSlider()
-        self.feat_slider.setFixedHeight(250)
+        self.feat_slider.setFixedHeight(200)
         self.feat_slider.setDisabled(True)
         ctrl_layout.addWidget(self.feat_slider)
+        ctrl_layout.setAlignment(self.feat_slider, Qt.AlignCenter)
         ctrl_layout.addStretch()
 
         
         horz_layout.addLayout(ctrl_layout)
         
         horz_layout.addStretch()
-        self.layout.addLayout(horz_layout)
-        self.layout.addStretch()
-        self.setLayout(self.layout)
+        main_layout.addLayout(horz_layout)
+        main_layout.addStretch()
+        self.setLayout(main_layout)
 
         self.set_current_value(self.current_value)
 
@@ -284,13 +282,12 @@ class DMXSelectorWidget(QWidget):
             data = kwargs.get('data_dict')
             if data['requester'] != self.uuid:
                 if data['channel'] == self.channel.system_channel:
-                    channel = data['channel']
                     value = data['value']
                     self.set_current_value(value)
                     self.current_value = value
         
         
-class DMXDimmerWidget(QWidget):
+class DMXDimmerWidget(QGroupBox):
     def __init__(self, device_id, feature_id):
         super().__init__()
         self.device_id = device_id
@@ -307,29 +304,27 @@ class DMXDimmerWidget(QWidget):
         self.dmx = DMXInterface()
         self.uuid = uuid.uuid4()
         
-        self.layout = QVBoxLayout()
-        horz_layout = QHBoxLayout() 
-        title_layout = QHBoxLayout()
-        title_feat_txt_lbl = QLabel(feature_record.name)
-        title_feat_txt_lbl.setStyleSheet('font-weight: bold;')
-        title_layout.addWidget(title_feat_txt_lbl)
-        title_layout.addStretch()
-        self.layout.addLayout(title_layout)
 
+
+        main_layout = QVBoxLayout()
+        
+        self.setTitle(feature_record.name)
+
+       
         ctrl_layout = QVBoxLayout()
         self.feat_slider = QSlider()
         self.feat_slider.setFixedHeight(250)
-        self.feat_slider.setDisabled(True)
+        self.feat_slider.setRange(0, 255)
         ctrl_layout.addWidget(self.feat_slider)
+        ctrl_layout.setAlignment(Qt.AlignCenter)
         ctrl_layout.addStretch()
 
 
-        horz_layout.addLayout(ctrl_layout)
-        
-        horz_layout.addStretch()
-        self.layout.addLayout(horz_layout)
-        self.layout.addStretch()
-        self.setLayout(self.layout)
+       
+        main_layout.addLayout(ctrl_layout)
+        main_layout.addStretch()
+        self.setLayout(main_layout)
+        self.setMinimumWidth(100)
 
         self.set_current_value(self.current_value)
 
@@ -342,14 +337,39 @@ class DMXDimmerWidget(QWidget):
             data = kwargs.get('data_dict')
             if data['requester'] != self.uuid:
                 if data['channel'] == self.channel.system_channel:
-                    channel = data['channel']
                     value = data['value']
                     self.set_current_value(value)
                     self.current_value = value
 
 
         
-
+class DMXRGBWidget(QGroupBox):
+    def __init__(self, parent=None, device_id=None, feature_id=None):
+        super().__init__(parent)
+        self.device_id = device_id
+        self.feature_id = feature_id
+        device_record = Device.objects.get(pk=device_id)
+        feature_record = DeviceFeature.objects.get(pk=feature_id)
+        lib_channel_qs = LibraryChannel.objects.filter(device_feature=feature_record)
+        
+        main_layout = QVBoxLayout()
+        horz_layout = QHBoxLayout() 
+        self.setTitle(feature_record.name)  
+        
+    
+        self.red_slider = QSlider()
+        self.red_slider.setOrientation(Qt.Horizontal)
+        self.red_slider.setRange(0, 255)
+        self.green_slider = QSlider()
+        self.green_slider.setOrientation(Qt.Horizontal)
+        self.green_slider.setRange(0, 255)
+        self.blue_slider = QSlider()
+        self.blue_slider.setOrientation(Qt.Horizontal)
+        self.blue_slider.setRange(0, 255)
+        self.layout.addWidget(self.red_slider)
+        self.layout.addWidget(self.green_slider)
+        self.layout.addWidget(self.blue_slider)
+        self.layout.addStretch()
 
 
 

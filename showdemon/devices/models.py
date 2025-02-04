@@ -105,6 +105,10 @@ class LibraryChannel(models.Model):
         max_length=(1000),
         blank = True
     )
+    startup_int = models.IntegerField(
+        blank=True,
+        null=True
+    )
     sort_order = models.IntegerField()
     def __str__(self):
         return str(self.name)

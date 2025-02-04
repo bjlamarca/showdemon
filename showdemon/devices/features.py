@@ -44,6 +44,7 @@ class Feature():
             new_channel.channel_type = channel
             new_channel.device_feature = new_feature
             new_channel.sort_order = channel_sort_order
+            new_channel.startup_int = 0
             new_channel.save()
             channel_sort_order += 1
 
@@ -111,7 +112,7 @@ class DMX_RGB():
         return self.feature_list
     
     def has_parameters(self):
-        return self.has_parameters
+        return self.class_has_parameters
 
     def get_control_widget(self, channel_id):
         pass

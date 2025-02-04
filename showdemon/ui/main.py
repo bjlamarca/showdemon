@@ -15,6 +15,7 @@ from showdemon.threads import ThreadTracker
 from showdemon.threads import ThreadTracker
 from .utilities import get_icon_obj, load_stylesheet    
 
+
         
 
 class MainWindow(QMainWindow):
@@ -63,6 +64,8 @@ class MainWindow(QMainWindow):
         button_test_dmx = QPushButton('Start DMX Process')
         button_test_dmx.clicked.connect(self.start_dmx_process)
         
+
+        
         
         second_layout = QVBoxLayout()
         second_layout.addWidget(self.label_dmx_status)
@@ -81,11 +84,14 @@ class MainWindow(QMainWindow):
         btn_listen_midi.clicked.connect(self.listen_midi)
         btn_stop_midi = QPushButton("Stop")
         btn_stop_midi.clicked.connect(self.stop_midi)
+        btn_test = QPushButton("Test")
+        btn_test.clicked.connect(self.test)
 
         midi_layout.addWidget(midi_label)
         midi_layout.addWidget(btn_start_midi)
         midi_layout.addWidget(btn_listen_midi)
         midi_layout.addWidget(btn_stop_midi)
+        midi_layout.addWidget(btn_test)
         midi_layout.addStretch()
 
         thread_layout = QVBoxLayout()
@@ -125,6 +131,8 @@ class MainWindow(QMainWindow):
             hbox.addWidget(widget)
             layout.addLayout(hbox)
 
+    
+
     def start_midi(self):
         print("Start Midi")
         midi = Midi()
@@ -161,24 +169,11 @@ class MainWindow(QMainWindow):
     def start_dmx_process(self):
         dmx = DMXInterface()
         dmx.start_process_lookup()
-        # time.sleep(1)
-        # print("Red")
-        # dmx.update(5,255)
-        # dmx.update(1,255)
-        # dmx.update(2,0)
-        # dmx.update(3,0)
-        
-        # time.sleep(1)
-        # print("Green")
-        # dmx.update(1,0)
-        # dmx.update(2,255)
-        # dmx.update(3,0)
-        
-        # time.sleep(1)
-        # print("Blue")
-        # dmx.update(1,0)
-        # dmx.update(2,0)
-        # dmx.update(3,255)
+    
+    def test(self):
+        # self.new_testwin = BorderWindow()
+        # self.new_testwin.show()
+        pass
 
     def show_devlib_window(self, checked):
         self.new_window = DevLibWindow()
@@ -195,13 +190,14 @@ class MainWindow(QMainWindow):
         self.control_win.resize(QSize(600, 600))
         self.control_win.show()
 
+   
 
         
 
 def app_thread():
     app = QApplication(sys.argv)
     window = MainWindow()
-    app.setStyleSheet(load_stylesheet())
+    #app.setStyleSheet(load_stylesheet())
     window.setGeometry(200, 200, 800, 600)
     window.show()
     app.exec_()
