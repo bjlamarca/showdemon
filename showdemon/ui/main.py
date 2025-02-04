@@ -13,6 +13,7 @@ from .control import MainControlWindow
 from devices.midi import Midi
 from showdemon.threads import ThreadTracker
 from showdemon.threads import ThreadTracker
+from .utilities import get_icon_obj, load_stylesheet    
 
         
 
@@ -200,6 +201,7 @@ class MainWindow(QMainWindow):
 def app_thread():
     app = QApplication(sys.argv)
     window = MainWindow()
+    app.setStyleSheet(load_stylesheet())
     window.setGeometry(200, 200, 800, 600)
     window.show()
     app.exec_()
