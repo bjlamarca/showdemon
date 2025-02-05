@@ -213,7 +213,36 @@ class Channel(models.Model):
 
 
     
+class Color(models.Model):
+    name = models.CharField(
+        max_length=100,
+        verbose_name='Name'
+    )
+    favorite = models.BooleanField(
+        verbose_name='Favorite'
+    )
+    hex_code = models.CharField(
+        max_length=7,
+        verbose_name='Hex Code'
+    )
+    red = models.IntegerField(
+        verbose_name='Red'
+    )
+    green = models.IntegerField(
+        verbose_name='Green'
+    )
+    blue = models.IntegerField(
+        verbose_name='Blue'
+    )
+    sort = models.IntegerField(
+        verbose_name='Sort',
+        blank=True,
+        null=True
+    )    
 
+
+    def __str__(self):
+        return self.name
 
 
 

@@ -1,3 +1,5 @@
 .venv
 
-showdemon/devices/__pycache__/*
+
+
+showdemon\devices\__pycache__\**
