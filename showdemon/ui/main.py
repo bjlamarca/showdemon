@@ -1,10 +1,12 @@
 import threading
 import sys, time
 
+
+
 from PySide6.QtCore import QSize, QThread, QObject, Signal, Slot
 from PySide6.QtWidgets import QApplication, QWidget, QMainWindow, QPushButton, QBoxLayout, QVBoxLayout, QLabel, QHBoxLayout, QComboBox, QCheckBox, QRadioButton, QTextEdit
 from PySide6.QtWidgets import   QSlider, QSpinBox, QProgressBar, QTableWidget, QTableWidgetItem, QLineEdit, QDockWidget, QSizePolicy, QSpacerItem, QLayout, QMenu 
-from PySide6.QtGui import  QAction
+from PySide6.QtGui import  QAction, QPainter, QColor, QPen
 
 from devices.interfaces import DMXInterface
 from .devicelib import DevLibWindow
@@ -16,6 +18,7 @@ from showdemon.threads import ThreadTracker
 from .utilities import get_icon_obj, load_stylesheet
 from show.audio import WaveformWidget
 
+
 from devices.colors import colors_db_sync, color_sort
 
         
@@ -25,10 +28,14 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("ShowDemon")
         
+        
+        
+
         # Main Widget and Layout
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         main_layout = QVBoxLayout(main_widget)
+        
 
         menu_bar = self.menuBar()
         
@@ -108,7 +115,19 @@ class MainWindow(QMainWindow):
         thread_layout.addWidget(self.thread_msg)
         thread_layout.addStretch()
         
-
+        
+        time_layout = QVBoxLayout()
+        time_lbl = QLabel("Timeline")
+        
+        
+        from show.learn2 import MovingLine, MyView
+        self.mywidget = MyView()
+        self.mywidget.resize(200, 200)
+        #self.mywidget.setGeometry(50, 50, 200, 200)
+        #self.mywidget.show()
+        time_layout.addWidget(time_lbl)
+        time_layout.addWidget(self.mywidget)
+        time_layout.addStretch()
        
         h_layout = QHBoxLayout()
         h_layout.addLayout(second_layout)
@@ -116,13 +135,18 @@ class MainWindow(QMainWindow):
         h_layout.addLayout(midi_layout)
         h_layout.addSpacing(30)
         h_layout.addLayout(thread_layout)
+        h_layout.addSpacing(30)
+        h_layout.addLayout(time_layout)
         h_layout.addStretch()
+
+        
+
         
         main_layout.addLayout(h_layout)
         
         label = QLabel("Hello World")
        
-       
+        
           
         # Function to add widget with label
         def add_widget_with_label(layout, widget, label_text):
