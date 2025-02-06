@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (QWidget, QPushButton, QMessageBox, QVBoxLayout, Q
 
 from PySide6.QtCore import QSize
 
-from devices.models import Manufacture, LibraryDevice, DeviceFeature, LibraryChannel, ChannelParameter
+from devices.models import Manufacture, LibraryDevice, DeviceFeature, LibraryChannel, ChannelParameter, Color
 from devices.constants import SystemType, Interfaces, FeatureList, ChannelType
 from devices.features import Feature
 from .utilities import get_icon_obj
@@ -688,6 +688,17 @@ class FeatureDialog(QDialog):
         name_layout.addWidget(lbl_name)
         name_layout.addWidget(self.txt_name)
         name_layout.addStretch()
+
+        hide_layout = QHBoxLayout()
+        lbl_hide = QLabel("Hide")
+        self.chk_hide = QCheckBox()
+        if dlg_type == 'edit':
+            self.chk_hide.setChecked(self.feature_qs.hide)
+        else:
+            self.chk_hide.setChecked(False)
+        hide_layout.addWidget(lbl_hide)
+        hide_layout.addWidget(self.chk_hide)
+        hide_layout.addStretch()
         
         btn_layout = QHBoxLayout()
         btn_cancel = QPushButton("Cancel")
@@ -710,6 +721,7 @@ class FeatureDialog(QDialog):
 
         layout.addLayout(type_layout)
         layout.addLayout(name_layout)
+        layout.addLayout(hide_layout)
         layout.addLayout(btn_layout)
         layout.addLayout(msg_layout)
         layout.addStretch()
@@ -722,7 +734,7 @@ class FeatureDialog(QDialog):
     def add_feature(self):
         if self.txt_name.text() != "":
             feature = Feature()
-            feature.add_feature(self.type_list.currentData(), self.txt_name.text(), self.devlib_id)
+            feature.add_feature(self.type_list.currentData(), self.txt_name.text(), self.chk_hide.isChecked(), self.devlib_id)
             self.accept()
         else:
             self.msg_label.setText("Name cannot be empty")
@@ -731,6 +743,7 @@ class FeatureDialog(QDialog):
     def edit_feature(self):
         if self.txt_name.text() != "":
             self.feature_qs.name = self.txt_name.text()
+            self.feature_qs.hide = self.chk_hide.isChecked()
             self.feature_qs.save()
             self.accept()
         else:
@@ -738,6 +751,7 @@ class FeatureDialog(QDialog):
             self.msg_label.setStyleSheet("color: red")
 
 class ChannelDialog(QDialog):
+
     def __init__(self, parent=None, channel_id=None):
         super().__init__(parent)
              
@@ -815,6 +829,7 @@ class ChannelDialog(QDialog):
         parm_table_layout = QHBoxLayout()
         self.parm_table = QTableWidget()
         self.parm_table.setMinimumWidth(500)
+        self.parm_table.setMinimumHeight(300)
         parm_table_layout.addWidget(self.parm_table)
         parm_table_layout.addStretch()
 
@@ -915,7 +930,7 @@ class ChannelDialog(QDialog):
 
     def edit_parm(self):
         if self.parm_table.currentRow() != -1:
-            parm_id = int(self.parm_table.item(self.parm_table.currentRow(), 4).text())
+            parm_id = int(self.parm_table.item(self.parm_table.currentRow(), 5).text())
             dlg_parm = ParmWindows(self, self.channel_qs, 'edit', parm_id)
             dlg_parm.resize(400, 600)
             if dlg_parm.exec():
@@ -933,7 +948,7 @@ class ChannelDialog(QDialog):
             )
             if del_diag == QMessageBox.Yes:
                 try:
-                    parm_id = int(self.parm_table.item(self.parm_table.currentRow(), 4).text())
+                    parm_id = int(self.parm_table.item(self.parm_table.currentRow(), 5).text())
                     parm_qs = ChannelParameter.objects.get(pk=parm_id)
                     parm_qs.delete()
                 except Exception as e:
@@ -948,6 +963,7 @@ class ParmWindows(QDialog):
     def __init__(self, parent=None, channel_qs=None, dlg_type=None, channel_id=None):
         super().__init__(parent)
         self.channel_qs = channel_qs
+        self.dlg_type = dlg_type
         layout = QVBoxLayout()
 
         if dlg_type == 'add':
@@ -955,6 +971,21 @@ class ParmWindows(QDialog):
         elif dlg_type == 'edit':
             self.setWindowTitle("Edit Parameter")
             self.parm_qs = ChannelParameter.objects.get(pk=channel_id)
+
+
+        color_layout = QHBoxLayout()
+        lbl_color = QLabel("Color")
+        lbl_color.setMinimumWidth(100)
+        self.color_combo = QComboBox()
+        self.color_combo.addItem('', 0)
+        colors = Color.objects.all()
+        for color in colors:
+            self.color_combo.addItem(color.name, color.pk)
+        self.color_combo.setMinimumWidth(50)
+        self.color_combo.currentIndexChanged.connect(self.color_combo_changed)
+        color_layout.addWidget(lbl_color)
+        color_layout.addWidget(self.color_combo)
+        color_layout.addStretch()
 
         name_layout = QHBoxLayout()
         lbl_name = QLabel("Name")
@@ -1014,6 +1045,7 @@ class ParmWindows(QDialog):
         str_layout.addWidget(lbl_str)
         str_layout.addWidget(self.txt_str)
 
+        
         btn_layout = QHBoxLayout()
         btn_cancel = QPushButton("Cancel")
         btn_cancel.clicked.connect(self.reject)
@@ -1029,10 +1061,13 @@ class ParmWindows(QDialog):
         btn_layout.addStretch()
 
 
-        layout.addLayout(name_layout)
+       
         feature = Feature()
         self.feature_cls = feature.get_feature_class(self.channel_qs.device_feature.feature_class)
         feature_fields = self.feature_cls.get_parameter_fields()
+        if 'color' in feature_fields:
+            layout.addLayout(color_layout)
+        layout.addLayout(name_layout)
         if 'int_min' in feature_fields:
             layout.addLayout(min_layout)
         if 'int_max' in feature_fields:
@@ -1043,6 +1078,7 @@ class ParmWindows(QDialog):
             layout.addLayout(allow_fading_layout)
         if 'int_value' in feature_fields:
             layout.addLayout(value_layout)
+        
         layout.addLayout(btn_layout) 
 
         msg_layout = QHBoxLayout()
@@ -1053,6 +1089,25 @@ class ParmWindows(QDialog):
 
         self.setLayout(layout)
 
+        self.set_color()
+
+
+    def set_color(self):
+        if self.dlg_type == 'edit':
+            if self.parm_qs.color:
+                self.color_combo.setCurrentIndex(self.color_combo.findData(self.parm_qs.color.pk))
+                self.chk_fading.setEnabled(False)
+            else:
+                self.chk_fading.setEnabled(True)
+
+    def color_combo_changed(self):
+        if self.color_combo.currentData() != 0:
+            self.chk_fading.setChecked(False)
+            self.chk_fading.setEnabled(False)
+            self.txt_name.setText(self.color_combo.currentText())
+        else:
+            self.chk_fading.setEnabled(True)
+
     def add_parm(self):
         value_dict = {}
         value_dict['name'] = self.txt_name.text()
@@ -1061,6 +1116,7 @@ class ParmWindows(QDialog):
         value_dict['str_value'] = self.txt_value.text()
         value_dict['allow_fading'] = self.chk_fading.isChecked()
         value_dict['int_value'] = self.txt_value.text()
+        value_dict['color'] = self.color_combo.currentData()
         result = self.feature_cls.add_parameter(self.channel_qs.pk, value_dict)
         if result['result']:
             self.msg_label.setText(result['message'])
@@ -1079,6 +1135,7 @@ class ParmWindows(QDialog):
         value_dict['str_value'] = self.txt_value.text()
         value_dict['allow_fading'] = self.chk_fading.isChecked()
         value_dict['int_value'] = self.txt_value.text()
+        value_dict['color'] = self.color_combo.currentData()
         result = self.feature_cls.edit_parameter(self.parm_qs.pk, value_dict)
         if result['result']:
             self.msg_label.setText(result['message'])

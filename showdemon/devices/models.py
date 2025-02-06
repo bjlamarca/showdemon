@@ -66,6 +66,7 @@ class DeviceFeature(models.Model):
         on_delete=models.PROTECT
     )
     sort_order = models.IntegerField()
+    hide = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'Device Feature'
@@ -110,6 +111,7 @@ class LibraryChannel(models.Model):
         null=True
     )
     sort_order = models.IntegerField()
+    hide = models.BooleanField(default=False)
     def __str__(self):
         return str(self.name)
 
@@ -140,6 +142,12 @@ class ChannelParameter(models.Model):
     str_value = models.CharField(
         max_length=(5000),
         blank = True,
+        null=True
+    )
+    color = models.ForeignKey(
+        to='Color',
+        on_delete=models.PROTECT,
+        blank=True,
         null=True
     )
 

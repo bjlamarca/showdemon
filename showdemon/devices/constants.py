@@ -29,7 +29,7 @@ class FeatureList():
         ('DMX_RGB','DMX RGB'),
         ('DMX_DIMM', 'DMX Dimmer'),
         ('DMX_COLORWHL', 'DMX Color Wheel'),
-        ('DMX_GOBOWHL', 'DMX Gobo Wheel'),
+        ('DMX_PANTILT', 'DMX Pan Tilt'),
         ('DMX_SELECT', 'DMX Selector')
     )
 

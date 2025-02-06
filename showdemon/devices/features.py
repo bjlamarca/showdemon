@@ -1,6 +1,6 @@
-from devices.colors import Colors
+
 from .constants import SystemType, Interfaces, ChannelType, FeatureList
-from devices.models import LibraryDevice, DeviceFeature, LibraryChannel, ChannelParameter
+from devices.models import LibraryDevice, DeviceFeature, LibraryChannel, ChannelParameter, Color
 
 
 
@@ -16,8 +16,12 @@ class Feature():
             return DMX_DIMM()
         elif class_name == 'DMX_SELECT':
             return DMX_SELECT()
+        elif class_name == 'DMX_COLORWHL':
+            return DMX_COLORWHL()
+        elif class_name == 'DMX_PANTILT':
+            return DMX_PANTILT()
 
-    def add_feature(self, feature, name, devicelib_id):
+    def add_feature(self, feature, name, hide, devicelib_id):
         devicelib_qs = LibraryDevice.objects.get(pk=devicelib_id)
         feature_qs = DeviceFeature.objects.filter(library_device=devicelib_qs).order_by('-sort_order')
         
@@ -34,6 +38,7 @@ class Feature():
         new_feature.feature_class = feature
         new_feature.library_device = devicelib_qs
         new_feature.sort_order = feature_sort_order
+        new_feature.hide = False
         new_feature.save()
         print('Feature:', new_feature)
         channel_sort_order = 1
@@ -98,6 +103,8 @@ class Feature():
                 return 'Value'
             elif pararmeter_field == 'allow_fading':
                 return 'Allow Fading'
+            elif pararmeter_field == 'color':
+                return 'Color'
             else:
                 return False
 
@@ -130,10 +137,135 @@ class DMX_DIMM():
         return self.class_has_parameters
     
 class DMX_COLORWHL():
-    pass
+    def __init__(self):
+        self.class_has_parameters = True
+        self.parameter_fields = ['int_min', 'int_max', 'allow_fading', 'color']
+        self.feature_class = 'DMX_COLORWHL'
+        self.feature_list = ['SELECT']
+    
+    def get_channel_list(self):
+        return self.feature_list
+    
+    def has_parameters(self):
+        return self.class_has_parameters
 
-class DMX_GOBOWHL():
-    pass
+    def get_parameter_fields(self):
+        return self.parameter_fields
+
+    def add_parameter(self, channel_id, value_dict):
+        result_dict = {}
+        channel_qs = LibraryChannel.objects.get(pk=channel_id)
+        try:
+            int_min = int(value_dict['int_min'])
+        except:
+            result_dict['result'] = False
+            result_dict['message'] = 'Invalid Min Value'
+            return result_dict
+        else:
+            if int_min < 0 or int_min > 255:
+                result_dict['result'] = False
+                result_dict['message'] = 'Min must be between 0 and 255'
+                return result_dict
+        try:
+            int_max = int(value_dict['int_max'])
+        except:
+            result_dict['result'] = False
+            result_dict['message'] = 'Invalid Max Value'
+            return result_dict
+        else:
+            if int_max < 0 or int_max > 255:
+                result_dict['result'] = False
+                result_dict['message'] = 'Max must be between 0 and 255'
+                return result_dict
+        allow_fading = value_dict['allow_fading']
+       
+        if value_dict['name'] == '':
+            result_dict['result'] = False
+            result_dict['message'] = 'Name is required'
+            return result_dict
+        else:
+            name = value_dict['name']
+        
+        color_id = int(value_dict['color'])
+        if color_id != 0:
+            color_obj = Color.objects.get(pk=color_id)
+        else:
+            color_obj = None
+
+        new_parameter = ChannelParameter()
+        new_parameter.name = name
+        new_parameter.library_channel = channel_qs
+        new_parameter.int_min = int_min
+        new_parameter.int_max = int_max
+        new_parameter.allow_fading = allow_fading
+        new_parameter.color = color_obj
+        new_parameter.save() 
+
+        result_dict['result'] = True
+        result_dict['message'] = 'Parameter Added'
+        return result_dict
+    
+    def edit_parameter(self, parameter_id, value_dict):
+        result_dict = {}
+        parameter_qs = ChannelParameter.objects.get(pk=parameter_id)
+        try:
+            int_min = int(value_dict['int_min'])
+        except:
+            result_dict['result'] = False
+            result_dict['message'] = 'Invalid Min Value'
+            return result_dict
+        else:
+            if int_min < 0 or int_min > 255:
+                result_dict['result'] = False
+                result_dict['message'] = 'Min must be between 0 and 255'
+                return result_dict
+        try:
+            int_max = int(value_dict['int_max'])
+        except:
+            result_dict['result'] = False
+            result_dict['message'] = 'Invalid Max Value'
+            return result_dict
+        else:
+            if int_max < 0 or int_max > 255:
+                result_dict['result'] = False
+                result_dict['message'] = 'Max must be between 0 and 255'
+                return result_dict
+        allow_fading = value_dict['allow_fading']
+       
+        if value_dict['name'] == '':
+            result_dict['result'] = False
+            result_dict['message'] = 'Name is required'
+            return result_dict
+        else:
+            name = value_dict['name']
+
+        color_id = int(value_dict['color'])
+        if color_id != 0:
+            color_obj = Color.objects.get(pk=color_id)
+        else:
+            color_obj = None
+
+        parameter_qs.name = name
+        parameter_qs.int_min = int_min
+        parameter_qs.int_max = int_max
+        parameter_qs.allow_fading = allow_fading
+        parameter_qs.color = color_obj
+        parameter_qs.save()
+        result_dict['result'] = True
+        result_dict['message'] = 'Parameter Updated'
+        return result_dict
+
+class DMX_PANTILT():
+    def __init__(self):
+        self.class_has_parameters = False
+        self.feature_class = 'DMX_PANTILT'
+        self.feature_list = ['PAN', 'TILT']
+
+    def get_channel_list(self):
+        return self.feature_list
+    
+    def has_parameters(self):
+        return self.class_has_parameters
 
 class DMX_SELECT():
     def __init__(self):

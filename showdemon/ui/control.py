@@ -408,16 +408,11 @@ class DMXRGBWidget(QGroupBox):
         
         self.setTitle(feature_record.name)  
         
-    
-        combo_layout = QVBoxLayout()
-        self.color_combo = QComboBox()
-        self.color_combo.currentIndexChanged.connect(self.color_combo_changed)
-        self.color_combo.addItem('', 0)
-        colors = Color.objects.all()
-        for color in colors:
-            self.color_combo.addItem(color.name, color.pk)
-        self.color_combo.setMinimumWidth(50)
-        combo_layout.addWidget(self.color_combo)
+        value_layout = QHBoxLayout()
+        self.value_lbl = QLabel('Value')
+        self.value_lbl.setAlignment(Qt.AlignCenter)
+        value_layout.addWidget(self.value_lbl)
+        value_layout.setAlignment(self.value_lbl, Qt.AlignCenter)    
         
         slider_layout = QHBoxLayout()
         
@@ -450,12 +445,23 @@ class DMXRGBWidget(QGroupBox):
         self.blue_slider = QSlider()
         self.blue_slider.setRange(0, 255)
         self.blue_slider.setFixedHeight(200)
+        self.blue_slider.valueChanged.connect(self.blue_changed)
         blue_layout.addWidget(self.blue_slider)
         blue_layout.setAlignment(self.blue_slider, Qt.AlignCenter)
 
         slider_layout.addLayout(red_layout)
         slider_layout.addLayout(green_layout)
         slider_layout.addLayout(blue_layout)
+
+        combo_layout = QVBoxLayout()
+        self.color_combo = QComboBox()
+        self.color_combo.currentIndexChanged.connect(self.color_combo_changed)
+        self.color_combo.addItem('', 0)
+        colors = Color.objects.all()
+        for color in colors:
+            self.color_combo.addItem(color.name, color.pk)
+        self.color_combo.setMinimumWidth(50)
+        combo_layout.addWidget(self.color_combo)
 
         set_btn_layout = QHBoxLayout()
         self.btn_set = QPushButton('Set')
@@ -464,8 +470,9 @@ class DMXRGBWidget(QGroupBox):
         set_btn_layout.addStretch()
         set_btn_layout.setAlignment(self.btn_set, Qt.AlignCenter)
 
-        main_layout.addLayout(combo_layout)
+        main_layout.addLayout(value_layout)
         main_layout.addLayout(slider_layout)
+        main_layout.addLayout(combo_layout)
         main_layout.addLayout(set_btn_layout)
         main_layout.addStretch()
         self.setLayout(main_layout)
@@ -479,20 +486,23 @@ class DMXRGBWidget(QGroupBox):
 
     def color_combo_changed(self):
         color_id = self.color_combo.currentData()
-        color_record = Color.objects.get(pk=color_id)
         if color_id != 0:
+            color_record = Color.objects.get(pk=color_id)
             self.red_slider.setValue(color_record.red)
             self.green_slider.setValue(color_record.green)
             self.blue_slider.setValue(color_record.blue)  
         
     def red_changed(self, value):
-        pass
+        self.red_current_value = value
+        self.find_color()
 
     def green_changed(self, value):
-        pass
+        self.green_current_value = value
+        self.find_color()
 
     def blue_changed(self, value):
-        pass
+        self.blue_current_value = value
+        self.find_color()
     
     def send_update(self):
         send_dict = {'channel': self.red_channel.system_channel, 'value': self.red_slider.value(), 'requester': self.uuid}
@@ -502,6 +512,7 @@ class DMXRGBWidget(QGroupBox):
         send_dict = {'channel': self.blue_channel.system_channel, 'value': self.blue_slider.value(), 'requester': self.uuid}
 
     def receive_dmx_signal(self, sender, **kwargs):
+        data_received = False
         if sender == 'DMX-INTERFACE':
             data = kwargs.get('data_dict')
             if data['requester'] != self.uuid:
@@ -509,12 +520,147 @@ class DMXRGBWidget(QGroupBox):
                     value = data['value']
                     self.red_slider.setValue(value)
                     self.red_current_value = value
+                    data_received = True
                 elif data['channel'] == self.green_channel.system_channel:
                     value = data['value']
                     self.green_slider.setValue(value)
                     self.green_current_value = value
+                    data_received = True
                 elif data['channel'] == self.blue_channel.system_channel:
                     value = data['value']
                     self.blue_slider.setValue(value)
                     self.blue_current_value = value
+                    data_received = True
+            if data_received:
+                self.find_color()
+                
+                    
 
+    def find_color(self):
+        color_qs = Color.objects.filter(red=self.red_current_value, green=self.green_current_value, blue=self.blue_current_value)
+        if color_qs:
+            self.value_lbl.setText(color_qs[0].name)
+        else:
+            self.value_lbl.setText('')
+
+
+
+class DMXColorWheelWidget(QGroupBox):
+    def __init__(self, device_id, feature_id):
+        super().__init__()
+        self.device_id = device_id
+        self.feature_id = feature_id
+        device_record = Device.objects.get(pk=device_id)
+        feature_record = DeviceFeature.objects.get(pk=feature_id)
+        lib_channel_qs = LibraryChannel.objects.filter(device_feature=feature_record)
+        
+        lib_channel = lib_channel_qs[0] #should only be one
+        self.parm_qs = ChannelParameter.objects.filter(library_channel=lib_channel).order_by('int_min')
+        channel_qs = Channel.objects.filter(library_channel=lib_channel, device=device_record)
+        self.channel = channel_qs[0] #should only be one
+        self.current_value = self.channel.int_value
+        
+
+        dmx_signal.connect(self.receive_dmx_signal)
+        self.dmx = DMXInterface()
+        self.uuid = uuid.uuid4()
+
+        self.setTitle(feature_record.name)
+        main_layout = QVBoxLayout()
+        
+        value_layout = QHBoxLayout()
+        self.value_lbl = QLabel('Value')
+        self.value_lbl.setAlignment(Qt.AlignCenter)
+        value_layout.addWidget(self.value_lbl)
+        value_layout.setAlignment(self.value_lbl, Qt.AlignCenter)
+
+        color_layout = QVBoxLayout()
+        self.color_lbl = QLabel('Color')
+        self.color_lbl.setAlignment(Qt.AlignCenter)
+        color_layout.addWidget(self.color_lbl)
+        color_layout.setAlignment(self.color_lbl, Qt.AlignCenter)
+               
+        
+        
+        slider_layout = QVBoxLayout()
+        self.feat_slider = QSlider()
+        self.feat_slider.setFixedHeight(220)
+        self.feat_slider.setDisabled(True)
+        slider_layout.addWidget(self.feat_slider)
+        slider_layout.setAlignment(self.feat_slider, Qt.AlignCenter)
+        
+        
+        set_btn_layout = QHBoxLayout()
+        self.btn_set = QPushButton('Set')
+        self.btn_set.clicked.connect(self.send_update)
+        set_btn_layout.addWidget(self.btn_set)
+        set_btn_layout.setAlignment(self.btn_set, Qt.AlignCenter)
+
+        combo_layout = QVBoxLayout()
+        self.feat_combo = QComboBox()
+        self.feat_combo.addItem('', 0)
+        for parm in self.parm_qs:
+            self.feat_combo.addItem(parm.name, parm.pk)
+        self.feat_combo.currentIndexChanged.connect(self.combo_changed)
+        combo_layout.addWidget(self.feat_combo)
+
+       
+        main_layout.addLayout(value_layout)
+        main_layout.addLayout(slider_layout)
+        main_layout.addLayout(combo_layout)
+        main_layout.addLayout(set_btn_layout)
+        main_layout.addStretch()
+        
+        self.setLayout(main_layout)
+        
+        self.setMinimumWidth(100)
+    
+
+    def combo_changed(self):
+        if self.feat_combo.currentData() != 0:
+            parm_qs = ChannelParameter.objects.get(pk=self.feat_combo.currentData())
+            self.value_lbl.setText(parm_qs.name)
+            if parm_qs.allow_fading:
+                self.feat_slider.setDisabled(False)
+                self.feat_slider.setRange(parm_qs.int_min, parm_qs.int_max)
+                self.feat_slider.setValue(parm_qs.int_min)
+            else:
+                self.feat_slider.setDisabled(True)
+                self.feat_slider.setRange(parm_qs.int_min, parm_qs.int_max)
+                self.feat_slider.setValue(parm_qs.int_min)
+            
+
+    def set_slider(self):
+        pass
+
+    def set_current_value(self, value):
+        index = 0
+        for parm in self.parm_qs:
+            if value >= parm.int_min and value <= parm.int_max:
+                self.value_lbl.setText(parm.name)
+                #color_obj = Color.objects.get(p)
+                if parm.allow_fading:
+                    self.feat_slider.setDisabled(False)
+                    self.feat_slider.setRange(parm.int_min, parm.int_max)
+                    self.feat_slider.setValue(value)
+                else:
+                    self.feat_slider.setDisabled(True)
+                    self.feat_slider.setRange(parm.int_min, parm.int_max)
+                    self.feat_slider.setValue(value)
+                    
+                break
+            index += 1
+
+    def send_update(self):
+        send_dict = {'channel': self.channel.system_channel, 'value': self.feat_slider.value(), 'requester': self.uuid}
+        dmx_signal.send(sender=self.uuid, data_dict=send_dict)
+
+    def receive_dmx_signal(self, sender, **kwargs):
+        if sender == 'DMX-INTERFACE':
+            data = kwargs.get('data_dict')
+            if data['requester'] != self.uuid:
+                if data['channel'] == self.channel.system_channel:
+                    value = data['value']
+                    self.set_current_value(value)
+                    self.current_value = value
+        

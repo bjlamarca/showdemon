@@ -14,7 +14,7 @@ from devices.midi import Midi
 from showdemon.threads import ThreadTracker
 from showdemon.threads import ThreadTracker
 from .utilities import get_icon_obj, load_stylesheet
-
+from show.audio import WaveformWidget
 
 from devices.colors import colors_db_sync, color_sort
 
@@ -173,9 +173,8 @@ class MainWindow(QMainWindow):
         dmx.start_process_lookup()
     
     def test(self):
-        colors_db_sync()
-        color_sort()
-        pass
+        new_win = WaveformWidget()
+        new_win.show()
 
     def show_devlib_window(self, checked):
         self.new_window = DevLibWindow()

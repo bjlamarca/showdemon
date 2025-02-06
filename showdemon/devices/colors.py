@@ -1,15 +1,6 @@
 from .models import Color
 
 
-class Colors():
-    
-    def get_choices(self):
-        return self.COLOR_LIST
-    
-    def get_rgb(self, name):
-        for col in self.COLOR_LIST:
-            if col[0] == name:
-                return col[2]
 
 
 
