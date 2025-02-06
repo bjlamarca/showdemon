@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (QApplication, QFrame, QLabel, QLayout, QLayoutIte
 
 
 
-class DemonLayour(QWidget):
+class DemonLayout(QWidget):
     pass
 
 

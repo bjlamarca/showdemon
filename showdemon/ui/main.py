@@ -12,11 +12,12 @@ from devices.interfaces import DMXInterface
 from .devicelib import DevLibWindow
 from .device import DeviceWindow
 from .control import MainControlWindow
+from .showmain import ShowMainWin
 from devices.midi import Midi
 from showdemon.threads import ThreadTracker
 from showdemon.threads import ThreadTracker
 from .utilities import get_icon_obj, load_stylesheet
-from show.audio import WaveformWidget
+
 
 
 from devices.colors import colors_db_sync, color_sort
@@ -60,10 +61,16 @@ class MainWindow(QMainWindow):
         menu_bar.addMenu(setup_menu)
 
         control_menu = QMenu('Control', self)
-        channel_action = QAction('Control Window', self)
+        channel_action = QAction('Device Control', self)
         channel_action.triggered.connect(self.show_control_channel_window)
         control_menu.addAction(channel_action)
         menu_bar.addMenu(control_menu)
+
+        show_menu = QMenu('Show', self)
+        show_action = QAction('Show Player', self)
+        show_action.triggered.connect(self.show_show_window)
+        show_menu.addAction(show_action)
+        menu_bar.addMenu(show_menu) 
 
         self.label_dmx_status = QLabel('DMX Status')
         button_start_dmx = QPushButton('Start')
@@ -120,14 +127,14 @@ class MainWindow(QMainWindow):
         time_lbl = QLabel("Timeline")
         
         
-        from show.learn2 import MovingLine, MyView
-        self.mywidget = MyView()
-        self.mywidget.resize(200, 200)
-        #self.mywidget.setGeometry(50, 50, 200, 200)
-        #self.mywidget.show()
-        time_layout.addWidget(time_lbl)
-        time_layout.addWidget(self.mywidget)
-        time_layout.addStretch()
+        # from scratch.graphics import GraphicsWidget, TrackWidget
+        # self.mywidget = GraphicsWidget()
+        # #self.mywidget.resize(200, 200)
+        # #self.mywidget.setGeometry(50, 50, 200, 200)
+        # #self.mywidget.show()
+        # time_layout.addWidget(time_lbl)
+        # time_layout.addWidget(self.mywidget)
+        # time_layout.addStretch()
        
         h_layout = QHBoxLayout()
         h_layout.addLayout(second_layout)
@@ -135,8 +142,6 @@ class MainWindow(QMainWindow):
         h_layout.addLayout(midi_layout)
         h_layout.addSpacing(30)
         h_layout.addLayout(thread_layout)
-        h_layout.addSpacing(30)
-        h_layout.addLayout(time_layout)
         h_layout.addStretch()
 
         
@@ -144,7 +149,7 @@ class MainWindow(QMainWindow):
         
         main_layout.addLayout(h_layout)
         
-        label = QLabel("Hello World")
+        self.show_show_window(True) 
        
         
           
@@ -197,8 +202,9 @@ class MainWindow(QMainWindow):
         dmx.start_process_lookup()
     
     def test(self):
-        new_win = WaveformWidget()
-        new_win.show()
+        pass
+        # new_win = WaveformWidget()
+        # new_win.show()
 
     def show_devlib_window(self, checked):
         self.new_window = DevLibWindow()
@@ -214,6 +220,12 @@ class MainWindow(QMainWindow):
         self.control_win = MainControlWindow()
         self.control_win.resize(QSize(600, 600))
         self.control_win.show()
+
+    def show_show_window(self, checked):
+        
+        self.show_win = ShowMainWin()
+        self.show_win.resize(QSize(800, 600))
+        self.show_win.show()
 
    
 
